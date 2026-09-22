@@ -2,14 +2,13 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getCohort } from "@/services/cohortService";
 import { getScoresReport } from "@/services/reportService";
-import { CohortClassroomHeader } from "@/components/classroom/CohortClassroomHeader";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
 
 export default function CohortGradebook() {
   const { cohortId } = useParams<{ cohortId: string }>();
-  const { data: cohortData, isPending: cohortLoading } = useQuery({
+  const { data: cohortData } = useQuery({
     queryKey: ["cohort", cohortId],
     queryFn: () => getCohort(cohortId!),
     enabled: Boolean(cohortId),
@@ -23,7 +22,6 @@ export default function CohortGradebook() {
 
   return (
     <div>
-      <CohortClassroomHeader cohort={cohortData?.cohort} loading={cohortLoading} />
       <section className="mt-8">
         {scoresLoading ? (
           <TableSkeleton cols={6} />

@@ -2,7 +2,6 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getCohort } from "@/services/cohortService";
 import { getCourse } from "@/services/courseService";
-import { CohortClassroomHeader } from "@/components/classroom/CohortClassroomHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -27,7 +26,6 @@ export default function CohortCurriculum() {
 
   return (
     <div>
-      <CohortClassroomHeader cohort={cohortData?.cohort} loading={cohortLoading} />
       <section className="mt-8">
         {!courseId && !cohortLoading && (
           <EmptyState message="No course is assigned to this class yet. UZA attaches the programme when it publishes the intake." />

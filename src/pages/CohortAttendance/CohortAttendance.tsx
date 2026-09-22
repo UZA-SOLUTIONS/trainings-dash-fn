@@ -14,7 +14,6 @@ import {
   type AttendanceStatus,
   type SessionLabel,
 } from "@/services/attendanceService";
-import { CohortClassroomHeader } from "@/components/classroom/CohortClassroomHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,9 +38,16 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, humanize } from "@/lib/utils";
 
 const STATUSES: AttendanceStatus[] = ["present", "late", "absent", "excused"];
+
+const STATUS_STYLES: Record<AttendanceStatus, string> = {
+  present: "border-primary bg-primary text-primary-foreground",
+  late: "border-primary/40 bg-primary/15 text-primary",
+  absent: "border-destructive/40 bg-destructive/10 text-destructive",
+  excused: "border-border bg-muted text-muted-foreground",
+};
 
 function todayIso() {
   const d = new Date();
@@ -57,13 +63,31 @@ function daysInMonth(iso: string) {
   return { y, m, last, pad };
 }
 
+function shiftMonth(iso: string, delta: number) {
+  const [y, m] = iso.split("-").map(Number);
+  const next = new Date(y, m - 1 + delta, 1);
+  const month = String(next.getMonth() + 1).padStart(2, "0");
+  return `${next.getFullYear()}-${month}-01`;
+}
+
+function monthLabel(iso: string) {
+  const [y, m] = iso.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleString("en-GB", { month: "long", year: "numeric" });
+}
+
+function clampDate(value: string, today: string) {
+  if (!value) return today;
+  return value > today ? today : value;
+}
+
 export default function CohortAttendance() {
   const { cohortId } = useParams<{ cohortId: string }>();
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const canWrite = can("attendance.write");
+  const today = todayIso();
 
-  const [date, setDate] = useState(todayIso);
+  const [date, setDate] = useState(today);
   const [sessionLabel, setSessionLabel] = useState<SessionLabel>("full_day");
   const [activityNotes, setActivityNotes] = useState("");
   const [moduleId, setModuleId] = useState("");
@@ -71,7 +95,7 @@ export default function CohortAttendance() {
   const [roster, setRoster] = useState<AttendanceRosterRow[]>([]);
   const [pendingDelete, setPendingDelete] = useState(false);
 
-  const { data: cohortData, isPending: cohortLoading } = useQuery({
+  const { data: cohortData } = useQuery({
     queryKey: ["cohort", cohortId],
     queryFn: () => getCohort(cohortId!),
     enabled: Boolean(cohortId),
@@ -125,9 +149,18 @@ export default function CohortAttendance() {
     }
   }, [sessionData, existingId, cohortData]);
 
-  const markedCount = useMemo(() => roster.filter((row) => row.status).length, [roster]);
+  const counts = useMemo(() => {
+    const tally = { present: 0, late: 0, absent: 0, excused: 0, unmarked: 0 };
+    for (const row of roster) {
+      if (!row.status) tally.unmarked += 1;
+      else tally[row.status] += 1;
+    }
+    return tally;
+  }, [roster]);
   const sessionDates = useMemo(() => new Set(history.map((s) => s.date)), [history]);
   const calendar = daysInMonth(date);
+  const nextMonthStart = shiftMonth(date, 1);
+  const nextMonthDisabled = nextMonthStart > today;
 
   const save = useMutation({
     mutationFn: async () => {
@@ -198,16 +231,41 @@ export default function CohortAttendance() {
     setRoster((rows) => rows.map((row) => ({ ...row, status })));
   }
 
+  function pickDate(iso: string) {
+    setDate(clampDate(iso, today));
+  }
+
   const rollPending = Boolean(existingId) && sessionLoading;
 
   return (
     <div>
-      <CohortClassroomHeader cohort={cohortData?.cohort} loading={cohortLoading} />
-
       <section className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,18rem)_1fr]">
         <div className="space-y-6">
           <Card className="p-4">
-            <p className="text-sm font-medium">Calendar</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium">{monthLabel(date)}</p>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2"
+                  onClick={() => pickDate(shiftMonth(date, -1))}
+                >
+                  Prev
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2"
+                  disabled={nextMonthDisabled}
+                  onClick={() => pickDate(nextMonthStart)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
             <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
               {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
                 <span key={d}>{d}</span>
@@ -219,15 +277,18 @@ export default function CohortAttendance() {
                 const day = String(i + 1).padStart(2, "0");
                 const iso = `${calendar.y}-${String(calendar.m).padStart(2, "0")}-${day}`;
                 const has = sessionDates.has(iso);
+                const future = iso > today;
                 return (
                   <button
                     key={iso}
                     type="button"
-                    onClick={() => setDate(iso)}
+                    disabled={future}
+                    onClick={() => pickDate(iso)}
                     className={cn(
                       "rounded-md py-1",
-                      iso === date && "bg-primary text-primary-foreground",
-                      iso !== date && has && "bg-primary/15 text-primary",
+                      future && "cursor-not-allowed text-muted-foreground/40",
+                      !future && iso === date && "bg-primary text-primary-foreground",
+                      !future && iso !== date && has && "bg-primary/15 text-primary",
                     )}
                   >
                     {i + 1}
@@ -236,39 +297,17 @@ export default function CohortAttendance() {
               })}
             </div>
           </Card>
-          <Card className="p-4">
-            <p className="text-sm font-medium">Session history</p>
-            {historyPending && <TableSkeleton rows={4} cols={2} />}
-            {!historyPending && history.length === 0 && (
-              <p className="mt-2 text-sm text-muted-foreground">No sessions yet.</p>
-            )}
-            <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto text-sm">
-              {history.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    className={cn(
-                      "w-full rounded-md px-2 py-1.5 text-left hover:bg-muted",
-                      s.id === sessionId && "bg-muted font-medium",
-                    )}
-                    onClick={() => {
-                      setDate(s.date);
-                      setSessionLabel(s.session_label);
-                    }}
-                  >
-                    {s.date} · {s.session_label.replace("_", " ")}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </div>
 
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+          <Card className="space-y-4 p-4">
+            <p className="text-sm font-medium">Session</p>
             <div className="space-y-1.5">
               <Label>Date</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input
+                type="date"
+                max={today}
+                value={date}
+                onChange={(e) => pickDate(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Session</Label>
@@ -299,8 +338,37 @@ export default function CohortAttendance() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          </Card>
 
+          <Card className="p-4">
+            <p className="text-sm font-medium">Session history</p>
+            {historyPending && <TableSkeleton rows={4} cols={2} />}
+            {!historyPending && history.length === 0 && (
+              <p className="mt-2 text-sm text-muted-foreground">No sessions yet.</p>
+            )}
+            <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto text-sm">
+              {history.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "w-full rounded-md px-2 py-1.5 text-left hover:bg-muted",
+                      s.id === sessionId && "bg-muted font-medium",
+                    )}
+                    onClick={() => {
+                      pickDate(s.date);
+                      setSessionLabel(s.session_label);
+                    }}
+                  >
+                    {s.date} · {humanize(s.session_label)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
           <div className="space-y-1.5">
             <Label>Daily activity notes</Label>
             <Textarea
@@ -330,10 +398,11 @@ export default function CohortAttendance() {
                 )}
               </>
             )}
-            <p className="text-sm text-muted-foreground">
-              {markedCount}/{roster.length} marked
-            </p>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Present {counts.present} · Late {counts.late} · Absent {counts.absent} · Excused{" "}
+            {counts.excused} · Unmarked {counts.unmarked}
+          </p>
 
           {rollPending ? (
             <TableSkeleton cols={3} />
@@ -358,23 +427,27 @@ export default function CohortAttendance() {
                       </TableCell>
                       <TableCell>
                         {canWrite ? (
-                          <Select
-                            value={row.status ?? undefined}
-                            onValueChange={(v) => setStatus(row.candidate_id, v as AttendanceStatus)}
-                          >
-                            <SelectTrigger className="h-9 w-[140px]">
-                              <SelectValue placeholder="Mark" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {STATUSES.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                  {status}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex flex-wrap gap-1">
+                            {STATUSES.map((status) => (
+                              <Button
+                                key={status}
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className={cn(
+                                  "h-8 px-2 text-xs",
+                                  row.status === status && STATUS_STYLES[status],
+                                )}
+                                onClick={() => setStatus(row.candidate_id, status)}
+                              >
+                                {humanize(status)}
+                              </Button>
+                            ))}
+                          </div>
                         ) : (
-                          <span className="text-muted-foreground">{row.status ?? "—"}</span>
+                          <span className="text-muted-foreground">
+                            {row.status ? humanize(row.status) : "—"}
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>

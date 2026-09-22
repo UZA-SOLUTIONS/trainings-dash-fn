@@ -9,7 +9,6 @@ import {
   updateCandidate,
   type Candidate,
 } from "@/services/candidateService";
-import { CohortClassroomHeader } from "@/components/classroom/CohortClassroomHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -309,7 +308,6 @@ export default function CohortDetail() {
 
   return (
     <div>
-      <CohortClassroomHeader cohort={cohort} loading={isPending} />
       <div className="mt-6">
         {isPending && <TableSkeleton />}
         {cohort && (

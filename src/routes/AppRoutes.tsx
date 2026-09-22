@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
+import { ClassroomLayout } from "@/layouts/ClassroomLayout";
 import { LoadingSpinner } from "@/components/feedback/LoadingSpinner";
 
 const Login = lazy(() => import("@/pages/Login"));
@@ -46,13 +47,15 @@ export function AppRoutes() {
             <Route path="/courses" element={<Courses />} />
             <Route path="/modules" element={<Modules />} />
             <Route path="/candidates/:candidateId" element={<CandidateProfile />} />
-            <Route path="/cohorts/:cohortId" element={<CohortDetail />} />
-            <Route path="/cohorts/:cohortId/curriculum" element={<CohortCurriculum />} />
-            <Route path="/cohorts/:cohortId/attendance" element={<CohortAttendance />} />
-            <Route path="/cohorts/:cohortId/assessments" element={<CohortAssessments />} />
-            <Route path="/cohorts/:cohortId/gradebook" element={<CohortGradebook />} />
-            <Route path="/cohorts/:cohortId/issues" element={<CohortIssues />} />
-            <Route path="/cohorts/:cohortId/reports" element={<CohortReports />} />
+            <Route path="/cohorts/:cohortId" element={<ClassroomLayout />}>
+              <Route index element={<CohortDetail />} />
+              <Route path="curriculum" element={<CohortCurriculum />} />
+              <Route path="attendance" element={<CohortAttendance />} />
+              <Route path="assessments" element={<CohortAssessments />} />
+              <Route path="gradebook" element={<CohortGradebook />} />
+              <Route path="issues" element={<CohortIssues />} />
+              <Route path="reports" element={<CohortReports />} />
+            </Route>
           </Route>
         </Route>
 

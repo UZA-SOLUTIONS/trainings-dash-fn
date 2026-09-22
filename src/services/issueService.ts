@@ -65,3 +65,8 @@ export async function updateIssue(
   );
   return data.data.issue;
 }
+
+export async function deleteIssue(issueId: string) {
+  const { data } = await api.delete<ApiResponse<{ id: string }>>(`/issues/${issueId}`);
+  return data.data;
+}

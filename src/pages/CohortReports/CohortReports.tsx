@@ -10,7 +10,6 @@ import {
   getIssuesReport,
   getScoresReport,
 } from "@/services/reportService";
-import { CohortClassroomHeader } from "@/components/classroom/CohortClassroomHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,7 +35,7 @@ export default function CohortReports() {
   const [to, setTo] = useState("");
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  const { data: cohortData, isPending: cohortLoading } = useQuery({
+  const { data: cohortData } = useQuery({
     queryKey: ["cohort", cohortId],
     queryFn: () => getCohort(cohortId!),
     enabled: Boolean(cohortId),
@@ -96,8 +95,6 @@ export default function CohortReports() {
 
   return (
     <div>
-      <CohortClassroomHeader cohort={cohortData?.cohort} loading={cohortLoading} />
-
       <section className="mt-8 space-y-10">
         <Card className="space-y-4 p-5">
           <div className="flex flex-wrap items-end justify-between gap-4">

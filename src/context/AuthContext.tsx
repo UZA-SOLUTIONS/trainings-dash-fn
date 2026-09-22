@@ -17,7 +17,7 @@ import {
   isInstructor as checkInstructor,
   type PermissionAction,
 } from "@/lib/permissions";
-import type { DashboardTab } from "@/components/dashboard/types";
+import type { NavTab } from "@/components/dashboard/types";
 
 type AuthContextValue = {
   user: StaffUser | null;
@@ -29,7 +29,7 @@ type AuthContextValue = {
   isAdmin: boolean;
   isInstructor: boolean;
   can: (action: PermissionAction) => boolean;
-  canAccessTab: (tab: DashboardTab) => boolean;
+  canAccessTab: (tab: NavTab) => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: checkAdmin(user),
       isInstructor: checkInstructor(user),
       can: (action: PermissionAction) => can(user, action),
-      canAccessTab: (tab: DashboardTab) => canAccessTab(user, tab),
+      canAccessTab: (tab: NavTab) => canAccessTab(user, tab),
     }),
     [user, loading, login, register, logout, refreshUser],
   );

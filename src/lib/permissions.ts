@@ -1,5 +1,5 @@
 import type { StaffUser } from "@/services/authService";
-import type { DashboardTab } from "@/components/dashboard/types";
+import type { DashboardTab, NavTab } from "@/components/dashboard/types";
 
 export type PermissionAction =
   | "cohorts.write"
@@ -15,13 +15,20 @@ export type PermissionAction =
   | "issues.write"
   | "reports.read";
 
-const TAB_ACCESS: Record<DashboardTab, StaffUser["role"][]> = {
+const TAB_ACCESS: Record<NavTab, StaffUser["role"][]> = {
   overview: ["admin", "instructor"],
   cohorts: ["admin", "instructor"],
   courses: [],
   modules: [],
   candidates: ["admin", "instructor"],
   settings: ["admin", "instructor"],
+  roster: ["admin", "instructor"],
+  curriculum: ["admin", "instructor"],
+  attendance: ["admin", "instructor"],
+  assessments: ["admin", "instructor"],
+  gradebook: ["admin", "instructor"],
+  issues: ["admin", "instructor"],
+  reports: ["admin", "instructor"],
 };
 
 export function roleLabel(role: StaffUser["role"]): string {
@@ -41,9 +48,10 @@ export function can(user: StaffUser | null, action: PermissionAction): boolean {
   switch (action) {
     case "staff.manage":
       return user.role === "admin";
+    case "cohorts.write":
+      return user.role === "admin";
     case "courses.write":
     case "modules.write":
-    case "cohorts.write":
       return false;
     case "candidates.delete":
     case "candidates.read":
@@ -59,7 +67,7 @@ export function can(user: StaffUser | null, action: PermissionAction): boolean {
   }
 }
 
-export function canAccessTab(user: StaffUser | null, tab: DashboardTab): boolean {
+export function canAccessTab(user: StaffUser | null, tab: NavTab): boolean {
   if (!user) return false;
   return TAB_ACCESS[tab].includes(user.role);
 }

@@ -14,7 +14,6 @@ import {
   type AssessmentType,
 } from "@/services/assessmentService";
 import { listModules } from "@/services/moduleService";
-import { CohortClassroomHeader } from "@/components/classroom/CohortClassroomHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,12 +38,23 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ListSkeleton, TableSkeleton } from "@/components/feedback/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { humanize } from "@/lib/utils";
 
 function todayIso() {
   const d = new Date();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${month}-${day}`;
+}
+
+function formatShortDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export default function CohortAssessments() {
@@ -68,8 +78,9 @@ export default function CohortAssessments() {
   const [editMaxScore, setEditMaxScore] = useState("100");
   const [editModuleId, setEditModuleId] = useState("");
   const [editIsFinal, setEditIsFinal] = useState(false);
+  const [creating, setCreating] = useState(false);
 
-  const { data: cohortData, isPending: cohortLoading } = useQuery({
+  const { data: cohortData } = useQuery({
     queryKey: ["cohort", cohortId],
     queryFn: () => getCohort(cohortId!),
     enabled: Boolean(cohortId),
@@ -105,6 +116,12 @@ export default function CohortAssessments() {
     setEditIsFinal(selected.assessment.is_final);
   }, [selected]);
 
+  useEffect(() => {
+    if (selectedId || listLoading || assessments.length === 0) return;
+    const latest = [...assessments].sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (latest) setSelectedId(latest.id);
+  }, [assessments, selectedId, listLoading]);
+
   const create = useMutation({
     mutationFn: () =>
       createAssessment(cohortId!, {
@@ -120,6 +137,7 @@ export default function CohortAssessments() {
       setTitle("");
       setIsFinal(false);
       setModuleId("");
+      setCreating(false);
       setSelectedId(assessment.id);
       queryClient.invalidateQueries({ queryKey: ["assessments", cohortId] });
     },
@@ -198,16 +216,21 @@ export default function CohortAssessments() {
   }
 
   const selectedAssessment: Assessment | undefined = selected?.assessment;
+  const scoredCount = roster.filter((row) => row.score != null).length;
 
   return (
     <div>
-      <CohortClassroomHeader cohort={cohortData?.cohort} loading={cohortLoading} />
-
       <section className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,22rem)_1fr]">
         <div className="space-y-6">
           {canWrite && (
+            creating ? (
             <Card className="space-y-4 p-5">
-              <h2 className="font-display text-xl font-semibold">New quiz, test, or exam</h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-display text-xl font-semibold">New assessment</h2>
+                <Button type="button" variant="outline" size="sm" onClick={() => setCreating(false)}>
+                  Cancel
+                </Button>
+              </div>
               <div className="space-y-1.5">
                 <Label>Title</Label>
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -267,6 +290,11 @@ export default function CohortAssessments() {
                 {create.isPending ? "Creating…" : "Create"}
               </Button>
             </Card>
+            ) : (
+              <Button type="button" variant="outline" onClick={() => setCreating(true)}>
+                New assessment
+              </Button>
+            )
           )}
 
           <div>
@@ -292,10 +320,10 @@ export default function CohortAssessments() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium">{item.title}</p>
-                      <Badge variant="secondary">{item.type}</Badge>
+                      <Badge variant="secondary">{humanize(item.type)}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {item.date} · /{item.max_score}
+                      {formatShortDate(item.date)} · max {item.max_score}
                       {item.is_final ? " · final exam" : ""}
                       {item.module_id
                         ? ` · ${modules.find((m) => m.id === item.module_id)?.name ?? "module"}`
@@ -321,7 +349,8 @@ export default function CohortAssessments() {
                 <div>
                   <h2 className="font-display text-2xl font-semibold">{selectedAssessment?.title}</h2>
                   <p className="text-sm text-muted-foreground">
-                    Max {selectedAssessment?.max_score} · {selectedAssessment?.type}
+                    Max {selectedAssessment?.max_score} · {humanize(selectedAssessment?.type ?? "")}
+                    {roster.length > 0 ? ` · ${scoredCount} / ${roster.length} scored` : ""}
                   </p>
                 </div>
                 {canWrite && (
@@ -431,16 +460,21 @@ export default function CohortAssessments() {
                         </TableCell>
                         <TableCell>
                           {canWrite ? (
-                            <Input
-                              type="number"
-                              min={0}
-                              max={selectedAssessment?.max_score}
-                              className="h-9 w-28"
-                              value={row.score ?? ""}
-                              onChange={(e) => setScore(row.candidate_id, e.target.value)}
-                            />
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min={0}
+                                max={selectedAssessment?.max_score}
+                                className="h-9 w-28"
+                                value={row.score ?? ""}
+                                onChange={(e) => setScore(row.candidate_id, e.target.value)}
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                / {selectedAssessment?.max_score}
+                              </span>
+                            </div>
                           ) : (
-                            row.score ?? "—"
+                            row.score != null ? `${row.score} / ${selectedAssessment?.max_score}` : "—"
                           )}
                         </TableCell>
                         <TableCell>
