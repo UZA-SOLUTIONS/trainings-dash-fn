@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { AppRoutes } from "@/routes/AppRoutes";
 import { Toaster } from "@/components/ui/sonner";
 import { MotionProvider } from "@/components/motion/MotionProvider";
+import { LanguageProvider } from "@/i18n/LanguageContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,10 +24,12 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <MotionProvider>
-            <AppRoutes />
-            <Toaster richColors position="top-center" />
-          </MotionProvider>
+          <LanguageProvider>
+            <MotionProvider>
+              <AppRoutes />
+              <Toaster richColors position="top-center" />
+            </MotionProvider>
+          </LanguageProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

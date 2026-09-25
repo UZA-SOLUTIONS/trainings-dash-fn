@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { m } from "framer-motion";
 import { pageEase, riseVariants } from "@/lib/motion";
+import { LanguageToggle } from "@/components/layout/LanguageToggle";
 
 export function AuthLayout() {
   return (
@@ -17,6 +18,9 @@ export function AuthLayout() {
           alt="UZA Mobility"
           className="absolute left-5 top-5 h-10 w-auto object-contain lg:left-8 lg:top-8"
         />
+        <div className="absolute right-5 top-5 w-24 lg:right-8 lg:top-8">
+          <LanguageToggle />
+        </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-[26rem] text-center">
             <Outlet />

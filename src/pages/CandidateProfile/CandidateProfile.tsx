@@ -14,10 +14,12 @@ import {
 import { DashboardPageSkeleton } from "@/components/feedback/Skeleton";
 import { FadeIn } from "@/components/motion/FadeIn";
 import { PageTitle } from "@/components/layout/PageTitle";
-import { LINK_TEXT, cn, humanize, scoreTone, statusTone } from "@/lib/utils";
+import { LINK_TEXT, cn, scoreTone, statusTone } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 
 export default function CandidateProfile() {
   const { candidateId } = useParams<{ candidateId: string }>();
+  const { t, label } = useI18n();
   const [previewOpen, setPreviewOpen] = useState(false);
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["candidate", candidateId],
@@ -30,18 +32,18 @@ export default function CandidateProfile() {
 
   return (
     <div>
-      <PageTitle>Candidate</PageTitle>
+      <PageTitle>{t("page.candidate")}</PageTitle>
       <Link
         to="/dashboard?tab=candidates"
         className={LINK_TEXT}
       >
-        ← Candidates
+        {t("common.candidatesBack")}
       </Link>
 
       {isPending && <DashboardPageSkeleton cols={3} rows={5} />}
 
       {isError && (
-        <p className="mt-6 text-destructive">{error instanceof Error ? error.message : "Could not load candidate"}</p>
+        <p className="mt-6 text-destructive">{error instanceof Error ? error.message : t("candidate.loadFail")}</p>
       )}
 
       {candidate && (
@@ -52,22 +54,22 @@ export default function CandidateProfile() {
               <h2 className="mt-1 text-2xl">{candidate.full_name}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {cohort?.name ?? "—"} ·{" "}
-                <span className={statusTone(candidate.status)}>{humanize(candidate.status)}</span>
+                <span className={statusTone(candidate.status)}>{label(candidate.status)}</span>
                 {" · "}
                 <span className={statusTone(candidate.training_status)}>
-                  {humanize(candidate.training_status)}
+                  {label(candidate.training_status)}
                 </span>
               </p>
             </div>
             <div className="flex gap-4">
               {cohort && (
                 <Link to={`/cohorts/${cohort.id}`} className={LINK_TEXT}>
-                  Open cohort
+                  {t("common.openCohort")}
                 </Link>
               )}
               {candidate.status === "graduated" && (
                 <button type="button" className={LINK_TEXT} onClick={() => setPreviewOpen(true)}>
-                  Print certificate
+                  {t("common.printCertificate")}
                 </button>
               )}
             </div>
@@ -77,33 +79,33 @@ export default function CandidateProfile() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Identity</TableHead>
-                  <TableHead>Value</TableHead>
+                  <TableHead>{t("col.identity")}</TableHead>
+                  <TableHead>{t("common.value")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell>National ID</TableCell>
+                  <TableCell>{t("col.nationalId")}</TableCell>
                   <TableCell>{candidate.national_id || "—"}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Phone</TableCell>
+                  <TableCell>{t("col.phone")}</TableCell>
                   <TableCell>{candidate.phone || "—"}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Email</TableCell>
+                  <TableCell>{t("col.email")}</TableCell>
                   <TableCell>{candidate.email || "—"}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Date of birth</TableCell>
+                  <TableCell>{t("col.dob")}</TableCell>
                   <TableCell>{candidate.date_of_birth || "—"}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Gender</TableCell>
+                  <TableCell>{t("col.gender")}</TableCell>
                   <TableCell>{candidate.gender || "—"}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>District</TableCell>
+                  <TableCell>{t("col.district")}</TableCell>
                   <TableCell>{candidate.district || "—"}</TableCell>
                 </TableRow>
               </TableBody>
@@ -111,30 +113,30 @@ export default function CandidateProfile() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Training</TableHead>
-                  <TableHead>Value</TableHead>
+                  <TableHead>{t("col.training")}</TableHead>
+                  <TableHead>{t("common.value")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell>Attendance</TableCell>
+                  <TableCell>{t("nav.attendance")}</TableCell>
                   <TableCell className={scoreTone(candidate.attendance_percentage)}>
                     {candidate.attendance_percentage != null ? `${candidate.attendance_percentage}%` : "—"}
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Exam score</TableCell>
+                  <TableCell>{t("col.examScore")}</TableCell>
                   <TableCell className={scoreTone(candidate.exam_score)}>
                     {candidate.exam_score != null ? `${candidate.exam_score}%` : "—"}
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Notes</TableCell>
+                  <TableCell>{t("col.notes")}</TableCell>
                   <TableCell>{candidate.instructor_notes || "—"}</TableCell>
                 </TableRow>
                 {candidate.disqualification_reason && (
                   <TableRow>
-                    <TableCell>Disqualification</TableCell>
+                    <TableCell>{t("candidate.disqualification")}</TableCell>
                     <TableCell>{candidate.disqualification_reason}</TableCell>
                   </TableRow>
                 )}
@@ -143,22 +145,22 @@ export default function CandidateProfile() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Issue</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>{t("col.issue")}</TableHead>
+                  <TableHead>{t("col.status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(data?.issues.length ?? 0) === 0 ? (
                   <TableRow>
                     <TableCell colSpan={2} className="text-muted-foreground">
-                      No issues recorded.
+                      {t("empty.noIssues")}
                     </TableCell>
                   </TableRow>
                 ) : (
                   data?.issues.slice(0, 6).map((issue) => (
                     <TableRow key={issue.id}>
                       <TableCell>{issue.title}</TableCell>
-                      <TableCell className={statusTone(issue.status)}>{humanize(issue.status)}</TableCell>
+                      <TableCell className={statusTone(issue.status)}>{label(issue.status)}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -170,26 +172,26 @@ export default function CandidateProfile() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Session</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Activity</TableHead>
+                  <TableHead>{t("col.date")}</TableHead>
+                  <TableHead>{t("col.session")}</TableHead>
+                  <TableHead>{t("col.status")}</TableHead>
+                  <TableHead>{t("col.activity")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(data?.recent_sessions.length ?? 0) === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-muted-foreground">
-                      No sessions yet.
+                      {t("empty.noSessions")}
                     </TableCell>
                   </TableRow>
                 ) : (
                   data?.recent_sessions.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell>{s.date}</TableCell>
-                      <TableCell>{s.session_label}</TableCell>
+                      <TableCell>{label(s.session_label)}</TableCell>
                       <TableCell className={statusTone(s.status)}>
-                        {s.status ? humanize(s.status) : "—"}
+                        {s.status ? label(s.status) : "—"}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{s.activity_notes ?? "—"}</TableCell>
                     </TableRow>
@@ -203,16 +205,16 @@ export default function CandidateProfile() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Assessment</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Score</TableHead>
+                  <TableHead>{t("col.assessment")}</TableHead>
+                  <TableHead>{t("col.type")}</TableHead>
+                  <TableHead>{t("col.score")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(data?.scores.length ?? 0) === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} className="text-muted-foreground">
-                      No assessments yet.
+                      {t("empty.noAssessmentsShort")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -221,7 +223,7 @@ export default function CandidateProfile() {
                     return (
                     <TableRow key={s.assessment_id}>
                       <TableCell>{s.title}</TableCell>
-                      <TableCell>{humanize(s.type)}</TableCell>
+                      <TableCell>{label(s.type)}</TableCell>
                       <TableCell className={cn("tabular-nums", scoreTone(pct))}>
                         {s.score == null ? "—" : `${s.score} / ${s.max_score}`}
                       </TableCell>

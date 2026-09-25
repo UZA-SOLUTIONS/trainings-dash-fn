@@ -34,9 +34,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ReasonDialog } from "@/components/ui/reason-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { CANCEL_TEXT, DELETE_TEXT, formatDob, humanize, LINK_TEXT, SAVE_TEXT, cn, statusTone } from "@/lib/utils";
+import { CANCEL_TEXT, DELETE_TEXT, formatDob, LINK_TEXT, SAVE_TEXT, cn, statusTone } from "@/lib/utils";
 import { CELL_SELECT, SheetInput } from "@/components/ui/sheet-input";
 import { PageTitle } from "@/components/layout/PageTitle";
+import { useI18n } from "@/i18n/LanguageContext";
 
 const STATUSES: CandidateStatus[] = ["enrolled", "waitlisted", "rejected", "withdrawn", "graduated"];
 const TRAINING: TrainingStatus[] = ["not_started", "in_progress", "completed", "failed"];
@@ -60,6 +61,7 @@ export function CandidatesPanel({
 }) {
   const queryClient = useQueryClient();
   const { can, isInstructor } = useAuth();
+  const { t, label } = useI18n();
   const canMembership = can("candidates.membership");
   const canTraining = can("candidates.training");
   const canDelete = can("candidates.delete");
@@ -105,7 +107,7 @@ export function CandidatesPanel({
         district: form.district.trim() || null,
       }),
     onSuccess: () => {
-      toast.success("Candidate added");
+      toast.success(t("toast.candidateAdded"));
       setForm(BLANK);
       setAdding(false);
       invalidate();
@@ -117,7 +119,7 @@ export function CandidatesPanel({
     mutationFn: ({ id, patch }: { id: string; patch: Record<string, unknown> }) =>
       updateCandidate(id, patch),
     onSuccess: () => {
-      toast.success("Updated");
+      toast.success(t("toast.updated"));
       setRejecting(null);
       invalidate();
     },
@@ -127,7 +129,7 @@ export function CandidatesPanel({
   const remove = useMutation({
     mutationFn: deleteCandidate,
     onSuccess: () => {
-      toast.success("Deleted");
+      toast.success(t("toast.deleted"));
       setPendingDelete(null);
       invalidate();
     },
@@ -154,21 +156,21 @@ export function CandidatesPanel({
               className={adding ? CANCEL_TEXT : SAVE_TEXT}
               onClick={() => setAdding((v) => !v)}
             >
-              {adding ? "Close" : "Add candidate"}
+              {adding ? t("common.close") : t("action.addCandidate")}
             </button>
           ) : undefined
         }
       >
-        Candidates
+        {t("page.candidates")}
       </PageTitle>
 
       {adding && (
         <Card className="mt-6 grid gap-4 p-5 md:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Cohort</Label>
+            <Label>{t("col.cohort")}</Label>
             <Select value={cohortId} onValueChange={setCohortId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select cohort" />
+                <SelectValue placeholder={t("empty.selectCohort")} />
               </SelectTrigger>
               <SelectContent>
                 {cohorts.map((c) => (
@@ -180,7 +182,7 @@ export function CandidatesPanel({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Full name</Label>
+            <Label>{t("col.fullName")}</Label>
             <SheetInput
               value={form.full_name}
               onChange={(full_name) => setForm({ ...form, full_name })}
@@ -189,7 +191,7 @@ export function CandidatesPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>National ID</Label>
+            <Label>{t("col.nationalId")}</Label>
             <SheetInput
               value={form.national_id}
               onChange={(national_id) => setForm({ ...form, national_id })}
@@ -198,7 +200,7 @@ export function CandidatesPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Phone</Label>
+            <Label>{t("col.phone")}</Label>
             <SheetInput
               value={form.phone}
               onChange={(phone) => setForm({ ...form, phone })}
@@ -207,7 +209,7 @@ export function CandidatesPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Email</Label>
+            <Label>{t("col.email")}</Label>
             <SheetInput
               type="email"
               value={form.email}
@@ -217,7 +219,7 @@ export function CandidatesPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Date of birth</Label>
+            <Label>{t("col.dob")}</Label>
             <SheetInput
               type="date"
               value={form.date_of_birth}
@@ -227,7 +229,7 @@ export function CandidatesPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Gender</Label>
+            <Label>{t("col.gender")}</Label>
             <SheetInput
               value={form.gender}
               onChange={(gender) => setForm({ ...form, gender })}
@@ -236,7 +238,7 @@ export function CandidatesPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>District</Label>
+            <Label>{t("col.district")}</Label>
             <SheetInput
               value={form.district}
               onChange={(district) => setForm({ ...form, district })}
@@ -249,7 +251,7 @@ export function CandidatesPanel({
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Input
-          placeholder="Search name, code, ID"
+          placeholder={t("empty.searchCandidates")}
           className="max-w-xs"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -259,7 +261,7 @@ export function CandidatesPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All cohorts</SelectItem>
+            <SelectItem value="all">{t("empty.allCohorts")}</SelectItem>
             {cohorts.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.code}
@@ -273,16 +275,16 @@ export function CandidatesPanel({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Candidate</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Cohort</TableHead>
-              <TableHead>National ID</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Date of birth</TableHead>
-              <TableHead>District</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Training</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t("col.candidate")}</TableHead>
+              <TableHead>{t("col.code")}</TableHead>
+              <TableHead>{t("col.cohort")}</TableHead>
+              <TableHead>{t("col.nationalId")}</TableHead>
+              <TableHead>{t("col.email")}</TableHead>
+              <TableHead>{t("col.dob")}</TableHead>
+              <TableHead>{t("col.district")}</TableHead>
+              <TableHead>{t("col.status")}</TableHead>
+              <TableHead>{t("col.training")}</TableHead>
+              <TableHead>{t("common.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -305,7 +307,7 @@ export function CandidatesPanel({
                   <span className="text-primary">{c.candidate_code}</span>
                   {c.source === "provided" && (
                     <Badge variant="secondary" className="ml-2">
-                      UZA provided
+                      {t("badge.uzaProvided")}
                     </Badge>
                   )}
                 </TableCell>
@@ -373,18 +375,18 @@ export function CandidatesPanel({
                   {canMembership ? (
                     <Select value={c.status} onValueChange={(v) => handleStatusChange(c, v)}>
                       <SelectTrigger className={cn(CELL_SELECT, statusTone(c.status))}>
-                        <SelectValue>{humanize(c.status)}</SelectValue>
+                        <SelectValue>{label(c.status)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {STATUSES.map((s) => (
                           <SelectItem key={s} value={s} className={statusTone(s)}>
-                            {humanize(s)}
+                            {label(s)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   ) : (
-                    humanize(c.status)
+                    label(c.status)
                   )}
                 </TableCell>
                 <TableCell className={canTraining ? "p-0" : statusTone(c.training_status)}>
@@ -394,24 +396,24 @@ export function CandidatesPanel({
                       onValueChange={(v) => update.mutate({ id: c.id, patch: { training_status: v } })}
                     >
                       <SelectTrigger className={cn(CELL_SELECT, statusTone(c.training_status))}>
-                        <SelectValue>{humanize(c.training_status)}</SelectValue>
+                        <SelectValue>{label(c.training_status)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {TRAINING.map((s) => (
                           <SelectItem key={s} value={s} className={statusTone(s)}>
-                            {humanize(s)}
+                            {label(s)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   ) : (
-                    humanize(c.training_status)
+                    label(c.training_status)
                   )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Link to={`/candidates/${c.id}`} className={LINK_TEXT}>
-                      Profile
+                      {t("col.profile")}
                     </Link>
                     {canDelete && isSchoolOwned(c) && (
                       <button
@@ -419,7 +421,7 @@ export function CandidatesPanel({
                         className={DELETE_TEXT}
                         onClick={() => setPendingDelete(c)}
                       >
-                        Delete
+                        {t("common.delete")}
                       </button>
                     )}
                   </div>
@@ -435,9 +437,9 @@ export function CandidatesPanel({
         onOpenChange={(open) => {
           if (!open) setPendingDelete(null);
         }}
-        title="Delete candidate"
-        description={pendingDelete ? `Delete ${pendingDelete.full_name}? Attendance, scores, and issues for this person will also be removed.` : ""}
-        confirmLabel="Delete candidate"
+        title={t("dialog.deleteCandidate")}
+        description={pendingDelete ? t("dialog.deleteCandidateBody", { name: pendingDelete.full_name }) : ""}
+        confirmLabel={t("dialog.deleteCandidateConfirm")}
         pending={remove.isPending}
         onConfirm={async () => {
           if (pendingDelete) await remove.mutateAsync(pendingDelete.id);
@@ -448,9 +450,9 @@ export function CandidatesPanel({
         onOpenChange={(open) => {
           if (!open) setRejecting(null);
         }}
-        title="Disqualify candidate"
-        description="A reason is required to reject this candidate."
-        confirmLabel="Reject"
+        title={t("dialog.disqualify")}
+        description={t("dialog.disqualifyBody")}
+        confirmLabel={t("dialog.reject")}
         pending={update.isPending}
         onConfirm={async (reason) => {
           if (!rejecting) return;

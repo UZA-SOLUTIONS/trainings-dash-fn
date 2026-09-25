@@ -21,6 +21,7 @@ import { CohortSummary } from "@/components/layout/CohortSummary";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { cn, CANCEL_TEXT, DELETE_TEXT, SAVE_TEXT } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 import { SheetTextarea } from "@/components/ui/sheet-input";
 import {
   Select,
@@ -110,6 +111,7 @@ export default function CohortAttendance() {
   const { cohortId } = useParams<{ cohortId: string }>();
   const queryClient = useQueryClient();
   const { can } = useAuth();
+  const { t, locale } = useI18n();
   const canWrite = can("attendance.write");
   const today = todayIso();
 
@@ -349,45 +351,52 @@ export default function CohortAttendance() {
 
   return (
     <div>
-      <PageTitle>Attendance</PageTitle>
+      <PageTitle>{t("page.attendance")}</PageTitle>
       <CohortSummary />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Meta label="Cohort">{cohortData?.cohort.name ?? "—"}</Meta>
-        <Meta label="Course title">{cohortData?.cohort.course?.name ?? "—"}</Meta>
-        <Meta label="Session">
+        <Meta label={t("col.cohort")}>{cohortData?.cohort.name ?? "—"}</Meta>
+        <Meta label={t("col.courseTitle")}>{cohortData?.cohort.course?.name ?? "—"}</Meta>
+        <Meta label={t("col.session")}>
           <Select value={sessionLabel} onValueChange={(v) => setSessionLabel(v as SessionLabel)}>
             <SelectTrigger className="h-8 border-0 bg-transparent px-0 shadow-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="full_day">Full day</SelectItem>
-              <SelectItem value="morning">Morning</SelectItem>
-              <SelectItem value="afternoon">Afternoon</SelectItem>
+              <SelectItem value="full_day">{t("session.full_day")}</SelectItem>
+              <SelectItem value="morning">{t("session.morning")}</SelectItem>
+              <SelectItem value="afternoon">{t("session.afternoon")}</SelectItem>
             </SelectContent>
           </Select>
         </Meta>
-        <Meta label="Key">
+        <Meta label={t("col.key")}>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-left text-[11px]">
             {CYCLE.map((status) => (
               <span key={status} className="flex items-center gap-1.5">
                 <span className={cn("inline-block size-2.5", CODES[status].swatch)} />
                 <span className={CODES[status].text}>
-                  {CODES[status].label} {CODES[status].letter}
+                  {status === "present"
+                    ? t("status.present")
+                    : status === "late"
+                      ? t("status.tardy")
+                      : status === "absent"
+                        ? t("attendance.unexcusedAbsence")
+                        : t("attendance.excusedAbsence")}{" "}
+                  {CODES[status].letter}
                 </span>
               </span>
             ))}
           </div>
         </Meta>
-        <Meta label="Instructor">{instructor}</Meta>
-        <Meta label="Location">{cohortData?.cohort.location || "—"}</Meta>
-        <Meta label="Month">
+        <Meta label={t("col.instructor")}>{instructor}</Meta>
+        <Meta label={t("col.location")}>{cohortData?.cohort.location || "—"}</Meta>
+        <Meta label={t("col.month")}>
           <div className="flex items-center justify-center gap-3">
             <button type="button" className={CANCEL_TEXT} onClick={() => setMonthIso(shiftMonth(monthIso, -1))}>
-              Prev
+              {t("common.prev")}
             </button>
             <span>
-              {new Date(month.y, month.m - 1, 1).toLocaleString("en-GB", { month: "short" })}
+              {new Date(month.y, month.m - 1, 1).toLocaleString(locale, { month: "short" })}
             </span>
             <button
               type="button"
@@ -395,24 +404,24 @@ export default function CohortAttendance() {
               disabled={nextMonthStart > today}
               onClick={() => setMonthIso(nextMonthStart)}
             >
-              Next
+              {t("common.next")}
             </button>
           </div>
         </Meta>
-        <Meta label="Year">{month.y}</Meta>
+        <Meta label={t("col.year")}>{month.y}</Meta>
       </div>
 
       {canWrite && (
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <button type="button" className={SAVE_TEXT} onClick={() => markColumn("present")}>
-            Mark {date.slice(8)} present
+            {t("action.markPresent", { day: date.slice(8) })}
           </button>
           <button type="button" className={DELETE_TEXT} onClick={() => markColumn("absent")}>
-            Mark {date.slice(8)} absent
+            {t("action.markAbsent", { day: date.slice(8) })}
           </button>
           {selectedSession && (
             <button type="button" className={DELETE_TEXT} onClick={() => setPendingDelete(true)}>
-              Delete session
+              {t("action.deleteSession")}
             </button>
           )}
         </div>
@@ -424,7 +433,7 @@ export default function CohortAttendance() {
             <TableSkeleton cols={12} rows={6} />
           </div>
         ) : candidates.length === 0 ? (
-          <p className="p-6 text-muted-foreground">No enrolled candidates in this cohort.</p>
+          <p className="p-6 text-muted-foreground">{t("empty.noEnrolled")}</p>
         ) : (
           <table className="w-max min-w-full border-collapse text-xs">
             <thead>
@@ -433,31 +442,31 @@ export default function CohortAttendance() {
                   rowSpan={2}
                   className="sticky left-0 z-30 min-w-[11rem] border border-background/25 bg-primary px-2 py-2 text-left font-medium text-primary-foreground"
                 >
-                  Student name
+                  {t("col.candidate")}
                 </th>
                 <th
                   rowSpan={2}
                   className="sticky left-[11rem] z-30 min-w-[6.5rem] border border-background/25 bg-primary px-2 py-2 text-left font-medium text-primary-foreground"
                 >
-                  Student ID
+                  {t("col.code")}
                 </th>
                 <th
                   colSpan={days.length}
                   className="border border-background/25 bg-primary px-2 py-1 text-center font-medium tracking-[0.2em] text-primary-foreground"
                 >
-                  Date
+                  {t("col.date")}
                 </th>
                 <th
                   colSpan={4}
                   className="border border-background/25 bg-chart-3 px-2 py-1 text-center font-medium tracking-[0.16em] text-primary-foreground"
                 >
-                  Totals
+                  {t("col.totals")}
                 </th>
                 <th
                   colSpan={4}
                   className="border border-background/25 bg-ink px-2 py-1 text-center font-medium tracking-[0.16em] text-ink-foreground"
                 >
-                  Percentages
+                  {t("col.percentages")}
                 </th>
               </tr>
               <tr>
@@ -646,9 +655,9 @@ export default function CohortAttendance() {
       <ConfirmDialog
         open={pendingDelete}
         onOpenChange={setPendingDelete}
-        title="Delete attendance session"
-        description="This removes the roll for this date and session."
-        confirmLabel="Delete session"
+        title={t("dialog.deleteSession")}
+        description={t("dialog.deleteSessionBody")}
+        confirmLabel={t("action.deleteSession")}
         pending={removeSession.isPending}
         onConfirm={async () => {
           await removeSession.mutateAsync();

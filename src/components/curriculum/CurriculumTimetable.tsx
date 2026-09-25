@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn, DELETE_TEXT, SAVE_TEXT } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
+import type { MessageKey } from "@/i18n/en";
 
 const DAYS: Array<{ id: TimetableDay; label: string }> = [
   { id: "monday", label: "Mon" },
@@ -163,6 +165,7 @@ export function CurriculumTimetable({
   modules: TrainingModule[];
   canWrite: boolean;
 }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const saved = cohort.timetable ?? [];
   const [entries, setEntries] = useState<TimetableEntry[]>(
@@ -254,12 +257,12 @@ export function CurriculumTimetable({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm">Weekly timetable</h2>
+        <h2 className="text-sm">{t("timetable.title")}</h2>
         {canWrite && (
           <div className="flex gap-3">
-            {save.isPending ? <span className="text-sm text-muted-foreground">Saving…</span> : null}
+            {save.isPending ? <span className="text-sm text-muted-foreground">{t("timetable.saving")}</span> : null}
             <button type="button" className={SAVE_TEXT} onClick={addPeriod}>
-              Add period
+              {t("timetable.addPeriod")}
             </button>
           </div>
         )}
@@ -269,14 +272,14 @@ export function CurriculumTimetable({
           <thead>
             <tr>
               <th className="sticky left-0 z-20 min-w-[9rem] border border-background/25 bg-primary px-2 py-2 text-left font-medium text-primary-foreground">
-                Time
+                {t("col.time")}
               </th>
               {DAYS.map((day) => (
                 <th
                   key={day.id}
                   className="min-w-[9rem] border border-background/25 bg-primary px-2 py-2 text-left font-medium text-primary-foreground"
                 >
-                  {day.label}
+                  {t(`day.${day.id}` as MessageKey)}
                 </th>
               ))}
               {canWrite && (
@@ -312,12 +315,12 @@ export function CurriculumTimetable({
                       {canWrite ? (
                         <Select value={value} onValueChange={(next) => setCell(day.id, slot, next)}>
                           <SelectTrigger className={CELL_SELECT}>
-                            <SelectValue>{label || "Free"}</SelectValue>
+                            <SelectValue>{label === "Break" ? t("timetable.break") : label === "Yard / practical" ? t("timetable.yard") : label || t("timetable.free")}</SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {ACTIVITIES.map((item) => (
                               <SelectItem key={item.value} value={item.value}>
-                                {item.label}
+                                {t(`timetable.${item.value}`)}
                               </SelectItem>
                             ))}
                             {modules.map((mod) => (
@@ -328,7 +331,7 @@ export function CurriculumTimetable({
                           </SelectContent>
                         </Select>
                       ) : (
-                        <span className="block px-2 py-1.5">{label || "Free"}</span>
+                        <span className="block px-2 py-1.5">{label === "Break" ? t("timetable.break") : label === "Yard / practical" ? t("timetable.yard") : label || t("timetable.free")}</span>
                       )}
                     </td>
                   );
@@ -336,7 +339,7 @@ export function CurriculumTimetable({
                 {canWrite && (
                   <td className="border border-border/40 px-2 py-1.5">
                     <button type="button" className={DELETE_TEXT} onClick={() => removePeriod(slot)}>
-                      Remove
+                      {t("timetable.remove")}
                     </button>
                   </td>
                 )}

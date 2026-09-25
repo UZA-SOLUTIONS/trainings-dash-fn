@@ -13,6 +13,7 @@ import { classroomHref } from "@/components/dashboard/types";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { cn, LINK_TEXT } from "@/lib/utils";
 import { useActiveCohort } from "@/hooks/useActiveCohort";
+import { useI18n } from "@/i18n/LanguageContext";
 import type { Cohort } from "@/services/cohortService";
 import {
   Table,
@@ -36,6 +37,7 @@ export function OverviewPanel({
   cohorts: Cohort[];
   candidates: Candidate[];
 }) {
+  const { t } = useI18n();
   const { activeCohort, activeCohortId, setActiveCohort } = useActiveCohort();
   const scopedCohorts = activeCohort ? [activeCohort] : cohorts;
   const scopedCandidates = activeCohort
@@ -53,9 +55,9 @@ export function OverviewPanel({
     : [];
 
   const shortcuts = [
-    { tool: "attendance" as const, label: "Attendance", icon: FiCalendar },
-    { tool: "assessments" as const, label: "Marks", icon: FiEdit3 },
-    { tool: "issues" as const, label: "Issues", icon: FiAlertCircle },
+    { tool: "attendance" as const, label: t("nav.attendance"), open: t("overview.openAttendance"), icon: FiCalendar },
+    { tool: "assessments" as const, label: t("nav.assessments"), open: t("overview.openMarks"), icon: FiEdit3 },
+    { tool: "issues" as const, label: t("nav.issues"), open: t("overview.openIssuesLink"), icon: FiAlertCircle },
   ];
 
   return (
@@ -65,10 +67,10 @@ export function OverviewPanel({
         actions={
           canSwitchIntake ? (
             <div className="w-full sm:max-w-xs">
-              <p className="mb-1.5 text-xs text-muted-foreground">Intake</p>
+              <p className="mb-1.5 text-xs text-muted-foreground">{t("overview.intake")}</p>
               <Select value={activeCohortId ?? undefined} onValueChange={setActiveCohort}>
                 <SelectTrigger className="h-10 text-sm">
-                  <SelectValue placeholder="Select an intake" />
+                  <SelectValue placeholder={t("overview.selectIntake")} />
                 </SelectTrigger>
                 <SelectContent>
                   {cohorts.map((cohort) => (
@@ -83,7 +85,7 @@ export function OverviewPanel({
           ) : undefined
         }
       >
-        Overview
+        {t("page.overview")}
       </PageTitle>
 
       {activeCohortId && (
@@ -97,14 +99,14 @@ export function OverviewPanel({
           </TableHeader>
           <TableBody>
             <TableRow>
-              {shortcuts.map(({ tool, label, icon: Icon }) => (
+              {shortcuts.map(({ tool, open, icon: Icon }) => (
                 <TableCell key={tool} className="p-0">
                   <Link
                     to={classroomHref(tool, activeCohortId)}
                     className={cn("flex items-center gap-2 px-3 py-2 hover:bg-accent/60", LINK_TEXT)}
                   >
                     <Icon size={16} aria-hidden />
-                    Open {label.toLowerCase()}
+                    {open}
                   </Link>
                 </TableCell>
               ))}

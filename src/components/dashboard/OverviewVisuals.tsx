@@ -2,6 +2,7 @@ import type { Cohort } from "@/services/cohortService";
 import { HorizontalBar } from "@/components/charts/ChartPrimitives";
 import { FadeIn } from "@/components/motion/FadeIn";
 import { cn, statusTone } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 import {
   Table,
   TableBody,
@@ -18,17 +19,17 @@ type Candidate = {
 };
 
 const TRAINING = [
-  { key: "not_started", label: "Not started", colorClass: "bg-muted-foreground/45" },
-  { key: "in_progress", label: "In progress", colorClass: "bg-chart-4" },
-  { key: "completed", label: "Completed", colorClass: "bg-primary" },
-  { key: "failed", label: "Failed", colorClass: "bg-destructive" },
+  { key: "not_started", colorClass: "bg-muted-foreground/45" },
+  { key: "in_progress", colorClass: "bg-chart-4" },
+  { key: "completed", colorClass: "bg-primary" },
+  { key: "failed", colorClass: "bg-destructive" },
 ] as const;
 
 const MIX = [
-  { key: "enrolled", label: "Enrolled", colorClass: "bg-primary" },
-  { key: "waitlisted", label: "Waitlisted", colorClass: "bg-chart-4" },
-  { key: "graduated", label: "Graduated", colorClass: "bg-chart-1" },
-  { key: "other", label: "Other", colorClass: "bg-destructive" },
+  { key: "enrolled", colorClass: "bg-primary" },
+  { key: "waitlisted", colorClass: "bg-chart-4" },
+  { key: "graduated", colorClass: "bg-chart-1" },
+  { key: "other", colorClass: "bg-destructive" },
 ] as const;
 
 function percent(value: number, total: number) {
@@ -45,6 +46,7 @@ export function OverviewVisuals({
   candidates: Candidate[];
   className?: string;
 }) {
+  const { t, label } = useI18n();
   const countStatus = (s: string) => candidates.filter((c) => c.status === s).length;
   const countTraining = (s: string) => candidates.filter((c) => c.training_status === s).length;
   const capacity = cohorts.reduce((a, c) => a + c.capacity, 0);
@@ -53,15 +55,20 @@ export function OverviewVisuals({
   const graduated = countStatus("graduated");
   const other = countStatus("rejected") + countStatus("withdrawn");
   const occupied = enrolled + graduated;
-  const classLabel = cohorts.length === 1 ? cohorts[0].name : `${cohorts.length} classes`;
+  const classLabel =
+    cohorts.length === 1 ? cohorts[0].name : t("overview.classesN", { count: cohorts.length });
   const inProgress = countTraining("in_progress");
-  const training = TRAINING.map((row) => ({ ...row, value: countTraining(row.key) }));
+  const training = TRAINING.map((row) => ({
+    ...row,
+    label: label(row.key),
+    value: countTraining(row.key),
+  }));
   const trainingTotal = candidates.length;
   const mix = [
-    { ...MIX[0], value: enrolled },
-    { ...MIX[1], value: waitlisted },
-    { ...MIX[2], value: graduated },
-    { ...MIX[3], value: other },
+    { ...MIX[0], label: t("overview.enrolled"), value: enrolled },
+    { ...MIX[1], label: t("overview.waitlisted"), value: waitlisted },
+    { ...MIX[2], label: t("overview.graduated"), value: graduated },
+    { ...MIX[3], label: t("overview.other"), value: other },
   ];
   const mixTotal = mix.reduce((a, r) => a + r.value, 0);
 
@@ -70,37 +77,37 @@ export function OverviewVisuals({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Seats</TableHead>
-            <TableHead>Value</TableHead>
+            <TableHead>{t("col.seats")}</TableHead>
+            <TableHead>{t("common.value")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           <TableRow>
-            <TableCell>Occupied</TableCell>
+            <TableCell>{t("overview.occupied")}</TableCell>
             <TableCell className="tabular-nums">
               {occupied} / {capacity || "—"} ({percent(occupied, capacity)})
             </TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Class</TableCell>
+            <TableCell>{t("overview.class")}</TableCell>
             <TableCell>
-              {classLabel} · {candidates.length} candidates
+              {classLabel} · {t("overview.candidatesN", { count: candidates.length })}
             </TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Enrolled</TableCell>
+            <TableCell>{t("overview.enrolled")}</TableCell>
             <TableCell className={cn("tabular-nums", statusTone("enrolled"))}>{enrolled}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Waitlisted</TableCell>
+            <TableCell>{t("overview.waitlisted")}</TableCell>
             <TableCell className={cn("tabular-nums", statusTone("waitlisted"))}>{waitlisted}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Graduated</TableCell>
+            <TableCell>{t("overview.graduated")}</TableCell>
             <TableCell className={cn("tabular-nums", statusTone("graduated"))}>{graduated}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Other</TableCell>
+            <TableCell>{t("overview.other")}</TableCell>
             <TableCell className={cn("tabular-nums", statusTone("rejected"))}>{other}</TableCell>
           </TableRow>
         </TableBody>
@@ -109,15 +116,15 @@ export function OverviewVisuals({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Training</TableHead>
-            <TableHead>Count</TableHead>
+            <TableHead>{t("col.training")}</TableHead>
+            <TableHead>{t("common.count")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           <TableRow>
-            <TableCell className={statusTone("in_progress")}>In progress</TableCell>
+            <TableCell className={statusTone("in_progress")}>{t("overview.inProgress")}</TableCell>
             <TableCell className="tabular-nums">
-              {inProgress} of {trainingTotal || 0}
+              {t("overview.of", { value: inProgress, total: trainingTotal || 0 })}
             </TableCell>
           </TableRow>
           {training.map((row) => (
@@ -140,13 +147,13 @@ export function OverviewVisuals({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Enrollment</TableHead>
-            <TableHead>Count</TableHead>
+            <TableHead>{t("col.enrollment")}</TableHead>
+            <TableHead>{t("common.count")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           <TableRow>
-            <TableCell>Mix</TableCell>
+            <TableCell>{t("overview.mix")}</TableCell>
             <TableCell>
               <div className="flex h-2.5 overflow-hidden bg-muted">
                 {mix.map((row) =>

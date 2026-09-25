@@ -28,10 +28,11 @@ import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { DonutChart } from "@/components/charts/ChartPrimitives";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { CANCEL_TEXT, DELETE_TEXT, cn, humanize, PASS_PCT, SAVE_TEXT, scoreOutcome, scoreTone, statusTone } from "@/lib/utils";
+import { CANCEL_TEXT, DELETE_TEXT, cn, PASS_PCT, SAVE_TEXT, scoreOutcome, scoreTone, statusTone } from "@/lib/utils";
 import { CELL_SELECT, SheetInput } from "@/components/ui/sheet-input";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { CohortSummary } from "@/components/layout/CohortSummary";
+import { useI18n } from "@/i18n/LanguageContext";
 
 const RANGES = [
   { label: "90–100%", min: 90, max: 101, bar: "bg-chart-1" },
@@ -91,6 +92,7 @@ export default function CohortAssessments() {
   const { cohortId } = useParams<{ cohortId: string }>();
   const queryClient = useQueryClient();
   const { can } = useAuth();
+  const { t, label } = useI18n();
   const canWrite = can("assessments.write");
 
   const [title, setTitle] = useState("");
@@ -269,7 +271,7 @@ export default function CohortAssessments() {
   const needs = percents.filter((n) => n < PASS_PCT).length;
   const unmarked = roster.length - scored.length;
   const failLabel =
-    selectedAssessment?.is_final || selectedAssessment?.type === "exam" ? "Failed" : "Needs improvement";
+    selectedAssessment?.is_final || selectedAssessment?.type === "exam" ? t("marks.failed") : t("marks.needsImprovement");
   const sortedAssessments = [...assessments].sort((a, b) => b.date.localeCompare(a.date));
 
   const rangeCounts = useMemo(
@@ -286,43 +288,43 @@ export default function CohortAssessments() {
         actions={
           canWrite && !creating ? (
             <button type="button" className={SAVE_TEXT} onClick={() => setCreating(true)}>
-              New assessment
+              {t("action.newAssessment")}
             </button>
           ) : undefined
         }
       >
-        Marks
+        {t("page.marks")}
       </PageTitle>
       <CohortSummary />
 
       {canWrite && creating && (
         <Card className="mt-4 space-y-4 p-5">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm">New assessment</h2>
+            <h2 className="text-sm">{t("action.newAssessment")}</h2>
             <button type="button" className={CANCEL_TEXT} onClick={() => setCreating(false)}>
-              Cancel
+              {t("common.cancel")}
             </button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Title</Label>
+              <Label>{t("col.title")}</Label>
               <SheetInput value={title} onChange={setTitle} onSave={() => create.mutate()} pending={create.isPending} />
             </div>
             <div className="space-y-1.5">
-              <Label>Type</Label>
+              <Label>{t("col.type")}</Label>
               <Select value={type} onValueChange={(v) => setType(v as AssessmentType)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="quiz">Quiz</SelectItem>
-                  <SelectItem value="test">Test</SelectItem>
-                  <SelectItem value="exam">Exam</SelectItem>
+                  <SelectItem value="quiz">{t("type.quiz")}</SelectItem>
+                  <SelectItem value="test">{t("type.test")}</SelectItem>
+                  <SelectItem value="exam">{t("type.exam")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Date</Label>
+              <Label>{t("col.date")}</Label>
               <SheetInput type="date" value={date} onChange={setDate} onSave={() => create.mutate()} pending={create.isPending} />
             </div>
             <div className="space-y-1.5">
@@ -330,7 +332,7 @@ export default function CohortAssessments() {
               <SheetInput type="number" min={1} value={maxScore} onChange={setMaxScore} onSave={() => create.mutate()} pending={create.isPending} />
             </div>
             <div className="space-y-1.5">
-              <Label>Module</Label>
+              <Label>{t("col.module")}</Label>
               <Select value={moduleId || "none"} onValueChange={(v) => setModuleId(v === "none" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Optional" />
@@ -392,13 +394,13 @@ export default function CohortAssessments() {
             <div className="grid gap-0 overflow-hidden border border-border/40 sm:grid-cols-5">
               <label className="border-b border-border/40 sm:border-r sm:border-b-0">
                 <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
-                  Title
+                  {t("col.title")}
                 </span>
-                <SheetInput value={editTitle} onChange={setEditTitle} onSave={() => saveMeta.mutate()} pending={saveMeta.isPending} />
+                <SheetInput value={editTitle} onChange={setEditTitle} onSave={() => saveMeta.mutate({})} pending={saveMeta.isPending} />
               </label>
               <label className="border-b border-border/40 sm:border-r sm:border-b-0">
                 <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
-                  Type
+                  {t("col.type")}
                 </span>
                 <Select
                   value={editType}
@@ -412,27 +414,27 @@ export default function CohortAssessments() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="quiz">Quiz</SelectItem>
-                    <SelectItem value="test">Test</SelectItem>
-                    <SelectItem value="exam">Exam</SelectItem>
+                    <SelectItem value="quiz">{t("type.quiz")}</SelectItem>
+                    <SelectItem value="test">{t("type.test")}</SelectItem>
+                    <SelectItem value="exam">{t("type.exam")}</SelectItem>
                   </SelectContent>
                 </Select>
               </label>
               <label className="border-b border-border/40 sm:border-r sm:border-b-0">
                 <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
-                  Date
+                  {t("col.date")}
                 </span>
-                <SheetInput type="date" value={editDate} onChange={setEditDate} onSave={() => saveMeta.mutate()} pending={saveMeta.isPending} />
+                <SheetInput type="date" value={editDate} onChange={setEditDate} onSave={() => saveMeta.mutate({})} pending={saveMeta.isPending} />
               </label>
               <label className="border-b border-border/40 sm:border-r sm:border-b-0">
                 <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
                   Max score
                 </span>
-                <SheetInput type="number" min={1} value={editMaxScore} onChange={setEditMaxScore} onSave={() => saveMeta.mutate()} pending={saveMeta.isPending} />
+                <SheetInput type="number" min={1} value={editMaxScore} onChange={setEditMaxScore} onSave={() => saveMeta.mutate({})} pending={saveMeta.isPending} />
               </label>
               <label>
                 <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
-                  Module
+                  {t("col.module")}
                 </span>
                 <Select
                   value={editModuleId || "none"}
@@ -463,7 +465,7 @@ export default function CohortAssessments() {
               {selectedAssessment.title} analysis
             </h2>
             <p className="mt-1 text-center text-sm text-muted-foreground">
-              Max {max} · {humanize(selectedAssessment.type)}
+              Max {max} · {label(selectedAssessment.type)}
               {selectedAssessment.is_final ? " · final exam" : ""}
             </p>
 

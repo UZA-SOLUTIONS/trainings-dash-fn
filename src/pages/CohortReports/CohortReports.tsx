@@ -13,7 +13,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn, humanize, LINK_TEXT, scoreTone, statusTone } from "@/lib/utils";
+import { cn, LINK_TEXT, scoreTone, statusTone } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ import { toast } from "sonner";
 
 export default function CohortReports() {
   const { cohortId } = useParams<{ cohortId: string }>();
+  const { t, label } = useI18n();
   const { can } = useAuth();
   const canRead = can("reports.read");
   const [from, setFrom] = useState("");
@@ -81,7 +83,7 @@ export default function CohortReports() {
         await downloadIssuesCsv(cohortId, `issues-${code}.csv`);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Download failed");
+      toast.error(e instanceof Error ? e.message : t("toast.downloadFailed"));
     } finally {
       setDownloading(null);
     }
@@ -96,22 +98,22 @@ export default function CohortReports() {
 
   return (
     <div>
-      <PageTitle>Reports</PageTitle>
+      <PageTitle>{t("page.reports")}</PageTitle>
       <CohortSummary />
       <section className="space-y-6">
         <Card className="space-y-4 p-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-sm font-normal">Attendance sheet</h2>
-              <p className="text-sm text-muted-foreground">Daily roll call by candidate</p>
+              <h2 className="text-sm font-normal">{t("reports.attendanceSheet")}</h2>
+              <p className="text-sm text-muted-foreground">{t("reports.attendanceHint")}</p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1.5">
-                <Label>From</Label>
+                <Label>{t("reports.from")}</Label>
                 <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>To</Label>
+                <Label>{t("reports.to")}</Label>
                 <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
               </div>
               <button
@@ -120,24 +122,24 @@ export default function CohortReports() {
                 disabled={downloading === "attendance"}
                 onClick={() => download("attendance")}
               >
-                {downloading === "attendance" ? "Downloading…" : "Download CSV"}
+                {downloading === "attendance" ? t("reports.downloading") : t("reports.downloadCsv")}
               </button>
             </div>
           </div>
           {attendanceQuery.isPending ? (
             <TableSkeleton cols={5} rows={5} />
           ) : !attendance || attendance.sessions.length === 0 ? (
-            <p className="text-muted-foreground">No attendance records in this range.</p>
+            <p className="text-muted-foreground">{t("empty.noAttendanceRange")}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Candidate</TableHead>
-                    <TableHead>Present</TableHead>
-                    <TableHead>Late</TableHead>
-                    <TableHead>Absent</TableHead>
-                    <TableHead>%</TableHead>
+                    <TableHead>{t("col.candidate")}</TableHead>
+                    <TableHead>{t("col.present")}</TableHead>
+                    <TableHead>{t("col.late")}</TableHead>
+                    <TableHead>{t("col.absent")}</TableHead>
+                    <TableHead>{t("col.percent")}</TableHead>
                     {dateHeaders.map((header) => (
                       <TableHead key={header}>{header}</TableHead>
                     ))}
@@ -158,7 +160,7 @@ export default function CohortReports() {
                       </TableCell>
                       {dateHeaders.map((header) => (
                         <TableCell key={header} className={cn("capitalize", statusTone(row.by_date[header]))}>
-                          {row.by_date[header] ? humanize(row.by_date[header]) : "—"}
+                          {row.by_date[header] ? label(row.by_date[header]) : "—"}
                         </TableCell>
                       ))}
                     </TableRow>
@@ -172,8 +174,8 @@ export default function CohortReports() {
         <Card className="space-y-4 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-normal">Score sheet</h2>
-              <p className="text-sm text-muted-foreground">Quiz, test, and exam marks</p>
+              <h2 className="text-sm font-normal">{t("reports.scoreSheet")}</h2>
+              <p className="text-sm text-muted-foreground">{t("reports.scoreHint")}</p>
             </div>
             <button
               type="button"
@@ -181,20 +183,20 @@ export default function CohortReports() {
               disabled={downloading === "scores"}
               onClick={() => download("scores")}
             >
-              {downloading === "scores" ? "Downloading…" : "Download CSV"}
+              {downloading === "scores" ? t("reports.downloading") : t("reports.downloadCsv")}
             </button>
           </div>
           {scoresQuery.isPending ? (
             <TableSkeleton cols={4} rows={5} />
           ) : !scores || scores.assessments.length === 0 ? (
-            <p className="text-muted-foreground">No assessments yet.</p>
+            <p className="text-muted-foreground">{t("empty.noAssessmentsShort")}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Candidate</TableHead>
-                    <TableHead>Exam %</TableHead>
+                    <TableHead>{t("col.candidate")}</TableHead>
+                    <TableHead>{t("col.examPct")}</TableHead>
                     {scores.assessments.map((item) => (
                       <TableHead key={item.id}>
                         {item.title}
@@ -236,8 +238,8 @@ export default function CohortReports() {
         <Card className="space-y-4 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-normal">Issue log</h2>
-              <p className="text-sm text-muted-foreground">Problems reported for candidates</p>
+              <h2 className="text-sm font-normal">{t("reports.issueLog")}</h2>
+              <p className="text-sm text-muted-foreground">{t("reports.issueHint")}</p>
             </div>
             <button
               type="button"
@@ -245,20 +247,20 @@ export default function CohortReports() {
               disabled={downloading === "issues"}
               onClick={() => download("issues")}
             >
-              {downloading === "issues" ? "Downloading…" : "Download CSV"}
+              {downloading === "issues" ? t("reports.downloading") : t("reports.downloadCsv")}
             </button>
           </div>
           {issuesQuery.isPending ? (
             <TableSkeleton cols={3} rows={5} />
           ) : !issues || issues.issues.length === 0 ? (
-            <p className="text-muted-foreground">No issues reported.</p>
+            <p className="text-muted-foreground">{t("empty.noIssuesReported")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>Candidate</TableHead>
-                  <TableHead>Issue</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>{t("col.candidate")}</TableHead>
+                  <TableHead>{t("col.issue")}</TableHead>
+                  <TableHead>{t("col.status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -271,11 +273,11 @@ export default function CohortReports() {
                     <TableCell>
                       <p>{issue.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {humanize(issue.category)} ·{" "}
-                        <span className={statusTone(issue.severity)}>{humanize(issue.severity)}</span>
+                        {label(issue.category)} ·{" "}
+                        <span className={statusTone(issue.severity)}>{label(issue.severity)}</span>
                       </p>
                     </TableCell>
-                    <TableCell className={statusTone(issue.status)}>{humanize(issue.status)}</TableCell>
+                    <TableCell className={statusTone(issue.status)}>{label(issue.status)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

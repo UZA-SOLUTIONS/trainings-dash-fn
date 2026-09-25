@@ -34,24 +34,26 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { CANCEL_TEXT, DELETE_TEXT, humanize, LINK_TEXT, SAVE_TEXT, statusTone } from "@/lib/utils";
+import { CANCEL_TEXT, DELETE_TEXT, LINK_TEXT, SAVE_TEXT, statusTone } from "@/lib/utils";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { CohortSummary } from "@/components/layout/CohortSummary";
+import { useI18n } from "@/i18n/LanguageContext";
 
 const CATEGORIES: IssueCategory[] = ["academic", "conduct", "attendance", "health", "other"];
 const SEVERITIES: IssueSeverity[] = ["low", "medium", "high"];
 const STATUSES: IssueStatus[] = ["open", "in_progress", "resolved"];
 
-function formatReported(value: string) {
+function formatReported(value: string, locale: string) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function CohortIssues() {
   const { cohortId } = useParams<{ cohortId: string }>();
   const queryClient = useQueryClient();
   const { can } = useAuth();
+  const { t, label, locale } = useI18n();
   const canWrite = can("issues.write");
 
   const [statusFilter, setStatusFilter] = useState<IssueStatus | "all">("all");
@@ -136,8 +138,8 @@ export default function CohortIssues() {
           <>
             {canWrite && !reporting && (
               <button type="button" className={SAVE_TEXT} onClick={() => setReporting(true)}>
-                Report an issue
-              </button>
+              {t("issues.report")}
+            </button>
             )}
             <Select
               value={statusFilter}
@@ -147,10 +149,10 @@ export default function CohortIssues() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="all">{t("issues.allStatuses")}</SelectItem>
                 {STATUSES.map((item) => (
                   <SelectItem key={item} value={item}>
-                    {humanize(item)}
+                    {label(item)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -158,7 +160,7 @@ export default function CohortIssues() {
           </>
         }
       >
-        Issues
+        {t("page.issues")}
       </PageTitle>
       <CohortSummary />
       <section className="space-y-4">
@@ -166,17 +168,17 @@ export default function CohortIssues() {
         {canWrite && reporting && (
           <Card className="space-y-4 p-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm">Report an issue</h2>
+              <h2 className="text-sm">{t("issues.report")}</h2>
               <button type="button" className={CANCEL_TEXT} onClick={() => setReporting(false)}>
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Candidate</Label>
+                <Label>{t("col.candidate")}</Label>
                 <Select value={candidateId || undefined} onValueChange={setCandidateId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select candidate" />
+                    <SelectValue placeholder={t("issues.selectCandidate")} />
                   </SelectTrigger>
                   <SelectContent>
                     {candidates.map((c) => (
@@ -188,7 +190,7 @@ export default function CohortIssues() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Category</Label>
+                <Label>{t("col.category")}</Label>
                 <Select value={category} onValueChange={(v) => setCategory(v as IssueCategory)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -196,14 +198,14 @@ export default function CohortIssues() {
                   <SelectContent>
                     {CATEGORIES.map((item) => (
                       <SelectItem key={item} value={item}>
-                        {humanize(item)}
+                        {label(item)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Severity</Label>
+                <Label>{t("col.severity")}</Label>
                 <Select value={severity} onValueChange={(v) => setSeverity(v as IssueSeverity)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -211,18 +213,18 @@ export default function CohortIssues() {
                   <SelectContent>
                     {SEVERITIES.map((item) => (
                       <SelectItem key={item} value={item}>
-                        {humanize(item)}
+                        {label(item)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Title</Label>
+                <Label>{t("col.title")}</Label>
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <Label>Details</Label>
+                <Label>{t("issues.details")}</Label>
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
               </div>
             </div>
@@ -232,7 +234,7 @@ export default function CohortIssues() {
               disabled={create.isPending || !candidateId || title.trim().length < 2}
               onClick={() => create.mutate()}
             >
-              {create.isPending ? "Reporting…" : "Report issue"}
+              {create.isPending ? t("action.reporting") : t("action.reportIssue")}
             </button>
           </Card>
         )}
@@ -240,18 +242,18 @@ export default function CohortIssues() {
         {issuesLoading ? (
           <TableSkeleton rows={4} cols={7} />
         ) : issues.length === 0 ? (
-          <p className="text-base text-muted-foreground">No issues reported yet.</p>
+          <p className="text-base text-muted-foreground">{t("issues.noneYet")}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Candidate</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Reported</TableHead>
-                {canWrite && <TableHead>Actions</TableHead>}
+                <TableHead>{t("col.title")}</TableHead>
+                <TableHead>{t("col.candidate")}</TableHead>
+                <TableHead>{t("col.category")}</TableHead>
+                <TableHead>{t("col.severity")}</TableHead>
+                <TableHead>{t("col.status")}</TableHead>
+                <TableHead>{t("col.reported")}</TableHead>
+                {canWrite && <TableHead>{t("common.actions")}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -265,7 +267,7 @@ export default function CohortIssues() {
                       )}
                       {issue.resolution_notes && (
                         <p className="mt-0.5 text-muted-foreground">
-                          Resolution: {issue.resolution_notes}
+                          {t("issues.resolution")}: {issue.resolution_notes}
                         </p>
                       )}
                     </TableCell>
@@ -273,10 +275,10 @@ export default function CohortIssues() {
                       {issue.candidate_name}
                       <span className="ml-1 font-mono text-muted-foreground">{issue.candidate_code}</span>
                     </TableCell>
-                    <TableCell>{humanize(issue.category)}</TableCell>
-                    <TableCell className={statusTone(issue.severity)}>{humanize(issue.severity)}</TableCell>
-                    <TableCell className={statusTone(issue.status)}>{humanize(issue.status)}</TableCell>
-                    <TableCell>{formatReported(issue.created_at)}</TableCell>
+                    <TableCell>{label(issue.category)}</TableCell>
+                    <TableCell className={statusTone(issue.severity)}>{label(issue.severity)}</TableCell>
+                    <TableCell className={statusTone(issue.status)}>{label(issue.status)}</TableCell>
+                    <TableCell>{formatReported(issue.created_at, locale)}</TableCell>
                     {canWrite && (
                       <TableCell>
                         <div className="flex flex-wrap gap-3">
@@ -288,7 +290,7 @@ export default function CohortIssues() {
                                 update.mutate({ id: issue.id, payload: { status: "in_progress" } })
                               }
                             >
-                              In progress
+                              {t("status.in_progress")}
                             </button>
                           )}
                           {issue.status !== "open" && (
@@ -302,7 +304,7 @@ export default function CohortIssues() {
                                 })
                               }
                             >
-                              Reopen
+                              {t("issues.reopen")}
                             </button>
                           )}
                           {issue.status !== "resolved" && (
@@ -314,7 +316,7 @@ export default function CohortIssues() {
                                 setResolutionNotes(issue.resolution_notes ?? "");
                               }}
                             >
-                              Resolve
+                              {t("issues.resolve")}
                             </button>
                           )}
                           <button
@@ -322,7 +324,7 @@ export default function CohortIssues() {
                             className={DELETE_TEXT}
                             onClick={() => setPendingDelete(issue.id)}
                           >
-                            Delete
+                            {t("common.delete")}
                           </button>
                         </div>
                       </TableCell>
@@ -332,7 +334,7 @@ export default function CohortIssues() {
                     <TableRow>
                       <TableCell colSpan={canWrite ? 7 : 6}>
                         <div className="space-y-2">
-                          <Label>Resolution notes</Label>
+                          <Label>{t("issues.resolutionNotes")}</Label>
                           <Textarea
                             value={resolutionNotes}
                             onChange={(e) => setResolutionNotes(e.target.value)}
@@ -351,7 +353,7 @@ export default function CohortIssues() {
                               })
                             }
                           >
-                            Save resolution
+                            {t("issues.saveResolution")}
                           </button>
                         </div>
                       </TableCell>
@@ -369,9 +371,9 @@ export default function CohortIssues() {
         onOpenChange={(open) => {
           if (!open) setPendingDelete(null);
         }}
-        title="Delete issue"
-        description="This removes the issue from the class log. This cannot be undone."
-        confirmLabel="Delete issue"
+        title={t("dialog.deleteIssue")}
+        description={t("dialog.deleteIssueBody")}
+        confirmLabel={t("dialog.deleteIssueConfirm")}
         pending={remove.isPending}
         onConfirm={async () => {
           if (pendingDelete) await remove.mutateAsync(pendingDelete);

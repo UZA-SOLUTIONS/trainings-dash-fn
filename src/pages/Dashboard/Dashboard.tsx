@@ -17,12 +17,14 @@ import { CardGridSkeleton, TableSkeleton } from "@/components/feedback/Skeleton"
 import { PageTitle } from "@/components/layout/PageTitle";
 import { pageEase, pageVariants } from "@/lib/motion";
 import { useWorkspaceResetKey } from "@/hooks/useWorkspaceResetKey";
+import { useI18n } from "@/i18n/LanguageContext";
 
 const DATA_TABS: DashboardTab[] = ["overview", "cohorts", "candidates"];
 
 export default function Dashboard() {
   const [params, setParams] = useSearchParams();
   const { user, canAccessTab } = useAuth();
+  const { t } = useI18n();
   const resetKey = useWorkspaceResetKey();
   const rawTab = params.get("tab");
   const tab: DashboardTab =
@@ -56,16 +58,18 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {needsData && isPending && (
-        <PageTitle>{tab === "cohorts" ? "Classes" : tab === "candidates" ? "Candidates" : "Overview"}</PageTitle>
+        <PageTitle>
+          {tab === "cohorts" ? t("page.classes") : tab === "candidates" ? t("page.candidates") : t("page.overview")}
+        </PageTitle>
       )}
       {needsData && isError && (
         <Card className="border-destructive/30 bg-destructive/5 p-5">
-          <p className="text-base font-medium text-destructive">Could not load dashboard data</p>
+          <p className="text-base font-medium text-destructive">{t("overview.loadFail")}</p>
           <p className="mt-1 text-base text-muted-foreground">
-            {error instanceof Error ? error.message : "Request failed"}
+            {error instanceof Error ? error.message : t("overview.failed")}
           </p>
           <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
-            Try again
+            {t("common.tryAgain")}
           </Button>
         </Card>
       )}

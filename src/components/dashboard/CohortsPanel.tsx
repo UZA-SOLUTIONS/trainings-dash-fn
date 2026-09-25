@@ -25,6 +25,7 @@ import { CELL_SELECT, SheetInput } from "@/components/ui/sheet-input";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { toast } from "sonner";
 import { CANCEL_TEXT, DELETE_TEXT, SAVE_TEXT, LINK_TEXT } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 
 type Candidate = { cohort_id: string; status: string };
 
@@ -57,6 +58,7 @@ export function CohortsPanel({
 }) {
   const queryClient = useQueryClient();
   const { can } = useAuth();
+  const { t } = useI18n();
   const canWrite = can("cohorts.write");
   const [creating, setCreating] = useState<Draft | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Cohort | null>(null);
@@ -84,7 +86,7 @@ export function CohortsPanel({
         course_id: d.course_id || null,
       }),
     onSuccess: () => {
-      toast.success("Cohort created");
+      toast.success(t("toast.cohortCreated"));
       setCreating(null);
       invalidate();
     },
@@ -95,7 +97,7 @@ export function CohortsPanel({
     mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof updateCohort>[1] }) =>
       updateCohort(id, payload),
     onSuccess: () => {
-      toast.success("Saved");
+      toast.success(t("toast.saved"));
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -104,7 +106,7 @@ export function CohortsPanel({
   const deleteMutation = useMutation({
     mutationFn: deleteCohort,
     onSuccess: () => {
-      toast.success("Cohort deleted");
+      toast.success(t("toast.cohortDeleted"));
       setPendingDelete(null);
       invalidate();
     },
@@ -119,26 +121,26 @@ export function CohortsPanel({
         actions={
           canWrite && !creating ? (
             <button type="button" className={SAVE_TEXT} onClick={() => setCreating({ ...BLANK })}>
-              New cohort
+              {t("action.newCohort")}
             </button>
           ) : undefined
         }
       >
-        Classes
+        {t("page.classes")}
       </PageTitle>
 
       <Card className="mt-4 overflow-hidden rounded-none border-0 shadow-none">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Cohort</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Course</TableHead>
-              <TableHead>Start</TableHead>
-              <TableHead>End</TableHead>
-              <TableHead>Capacity</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t("col.cohort")}</TableHead>
+              <TableHead>{t("col.code")}</TableHead>
+              <TableHead>{t("col.course")}</TableHead>
+              <TableHead>{t("col.start")}</TableHead>
+              <TableHead>{t("col.end")}</TableHead>
+              <TableHead>{t("col.capacity")}</TableHead>
+              <TableHead>{t("col.location")}</TableHead>
+              <TableHead>{t("common.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -150,7 +152,7 @@ export function CohortsPanel({
                       onChange={(name) => setCreating({ ...creating, name })}
                       onSave={() => createMutation.mutate(creating)}
                       pending={pending}
-                      placeholder="Name"
+                      placeholder={t("col.name")}
                     />
                   </TableCell>
                   <TableCell>
@@ -160,7 +162,7 @@ export function CohortsPanel({
                       onChange={(code) => setCreating({ ...creating, code })}
                       onSave={() => createMutation.mutate(creating)}
                       pending={pending}
-                      placeholder="Code"
+                      placeholder={t("col.code")}
                     />
                   </TableCell>
                   <TableCell>
@@ -171,10 +173,10 @@ export function CohortsPanel({
                       }
                     >
                       <SelectTrigger className={CELL_SELECT}>
-                        <SelectValue placeholder="No course" />
+                        <SelectValue placeholder={t("empty.noCourseShort")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">No course</SelectItem>
+                        <SelectItem value="none">{t("empty.noCourseShort")}</SelectItem>
                         {courses.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
@@ -216,12 +218,12 @@ export function CohortsPanel({
                     onChange={(location) => setCreating({ ...creating, location })}
                     onSave={() => createMutation.mutate(creating)}
                     pending={pending}
-                    placeholder="Location"
+                    placeholder={t("col.location")}
                   />
                 </TableCell>
                 <TableCell>
                   <button type="button" className={CANCEL_TEXT} onClick={() => setCreating(null)}>
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                 </TableCell>
               </TableRow>
@@ -269,10 +271,10 @@ export function CohortsPanel({
                         }
                       >
                         <SelectTrigger className={CELL_SELECT}>
-                          <SelectValue>{c.course?.name ?? "No course"}</SelectValue>
+                          <SelectValue>{c.course?.name ?? t("empty.noCourseShort")}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">No course</SelectItem>
+                          <SelectItem value="none">{t("empty.noCourseShort")}</SelectItem>
                           {courses.map((course) => (
                             <SelectItem key={course.id} value={course.id}>
                               {course.name}
@@ -355,7 +357,7 @@ export function CohortsPanel({
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Link to={`/cohorts/${c.id}`} className={LINK_TEXT}>
-                        Open
+                        {t("common.open")}
                       </Link>
                       {canWrite && (
                         <button
@@ -363,7 +365,7 @@ export function CohortsPanel({
                           className={DELETE_TEXT}
                           onClick={() => setPendingDelete(c)}
                         >
-                          Delete
+                          {t("common.delete")}
                         </button>
                       )}
                     </div>
@@ -380,11 +382,11 @@ export function CohortsPanel({
         onOpenChange={(open) => {
           if (!open) setPendingDelete(null);
         }}
-        title="Delete cohort"
+        title={t("dialog.deleteCohort")}
         description={
-          pendingDelete ? `Delete cohort “${pendingDelete.name}”? Candidates must be removed first.` : ""
+          pendingDelete ? t("dialog.deleteCohortBody", { name: pendingDelete.name }) : ""
         }
-        confirmLabel="Delete cohort"
+        confirmLabel={t("dialog.deleteCohortConfirm")}
         pending={deleteMutation.isPending}
         onConfirm={async () => {
           if (pendingDelete) await deleteMutation.mutateAsync(pendingDelete.id);

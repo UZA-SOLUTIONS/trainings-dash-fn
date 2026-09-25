@@ -24,6 +24,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, m } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { LanguageToggle } from "@/components/layout/LanguageToggle";
+import { useI18n } from "@/i18n/LanguageContext";
+import type { MessageKey } from "@/i18n/en";
 import type { NavTab } from "@/components/dashboard/types";
 import {
   dashboardTabFromPath,
@@ -32,33 +35,23 @@ import {
   workspaceHref,
 } from "@/components/dashboard/types";
 
-const TRAINING_NAV: {
-  tab: NavTab;
-  label: string;
-  icon: typeof FiBarChart2;
-}[] = [{ tab: "overview", label: "Overview", icon: FiBarChart2 }];
-
-const CLASSROOM_NAV: {
-  tab: NavTab;
-  label: string;
-  icon: typeof FiBarChart2;
-}[] = [
-  { tab: "roster", label: "Roster", icon: FiClipboard },
-  { tab: "curriculum", label: "Curriculum", icon: FiBookOpen },
-  { tab: "attendance", label: "Attendance", icon: FiCalendar },
-  { tab: "assessments", label: "Marks", icon: FiEdit3 },
-  { tab: "gradebook", label: "Gradebook", icon: FiGrid },
-  { tab: "issues", label: "Issues", icon: FiAlertCircle },
-  { tab: "reports", label: "Reports", icon: FiFileText },
+const TRAINING_NAV: { tab: NavTab; labelKey: MessageKey; icon: typeof FiBarChart2 }[] = [
+  { tab: "overview", labelKey: "nav.overview", icon: FiBarChart2 },
 ];
 
-const WORKSPACE_NAV: {
-  tab: NavTab;
-  label: string;
-  icon: typeof FiBarChart2;
-}[] = [
-  { tab: "cohorts", label: "Classes", icon: FiUsers },
-  { tab: "candidates", label: "Candidates", icon: FiUserCheck },
+const CLASSROOM_NAV: { tab: NavTab; labelKey: MessageKey; icon: typeof FiBarChart2 }[] = [
+  { tab: "roster", labelKey: "nav.roster", icon: FiClipboard },
+  { tab: "curriculum", labelKey: "nav.curriculum", icon: FiBookOpen },
+  { tab: "attendance", labelKey: "nav.attendance", icon: FiCalendar },
+  { tab: "assessments", labelKey: "nav.assessments", icon: FiEdit3 },
+  { tab: "gradebook", labelKey: "nav.gradebook", icon: FiGrid },
+  { tab: "issues", labelKey: "nav.issues", icon: FiAlertCircle },
+  { tab: "reports", labelKey: "nav.reports", icon: FiFileText },
+];
+
+const WORKSPACE_NAV: { tab: NavTab; labelKey: MessageKey; icon: typeof FiBarChart2 }[] = [
+  { tab: "cohorts", labelKey: "nav.cohorts", icon: FiUsers },
+  { tab: "candidates", labelKey: "nav.candidates", icon: FiUserCheck },
 ];
 
 const CELL =
@@ -72,6 +65,7 @@ export function StaffNav({
   onToggle: () => void;
 }) {
   const { logout, canAccessTab } = useAuth();
+  const { t } = useI18n();
   const { activeCohortId } = useActiveCohort();
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,7 +78,7 @@ export function StaffNav({
     ...TRAINING_NAV,
     ...CLASSROOM_NAV,
     ...WORKSPACE_NAV,
-    { tab: "settings" as NavTab, label: "Settings", icon: FiSettings },
+    { tab: "settings" as NavTab, labelKey: "nav.settings" as MessageKey, icon: FiSettings },
   ].filter(({ tab }) => canAccessTab(tab));
 
   async function signOut() {
@@ -170,7 +164,7 @@ export function StaffNav({
         <button
           type="button"
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center border border-primary-foreground/25 hover:bg-primary-foreground/10 lg:hidden"
-          aria-label="Close menu"
+          aria-label={t("nav.closeMenu")}
           onClick={() => setOpen(false)}
         >
           <FiX size={16} />
@@ -178,18 +172,21 @@ export function StaffNav({
         <button
           type="button"
           className="hidden h-8 w-8 shrink-0 items-center justify-center border border-primary-foreground/25 hover:bg-primary-foreground/10 lg:inline-flex"
-          aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
-          title={collapsed ? "Show sidebar" : "Hide sidebar"}
+          aria-label={collapsed ? t("nav.showSidebar") : t("nav.hideSidebar")}
+          title={collapsed ? t("nav.showSidebar") : t("nav.hideSidebar")}
           onClick={onToggle}
         >
           {collapsed ? <FiChevronsRight size={16} /> : <FiChevronsLeft size={16} />}
         </button>
       </div>
       <nav className="flex min-h-0 flex-1 flex-col">
-        {items.map(({ tab, label, icon }) => navRow(tab, label, icon))}
+        {items.map(({ tab, labelKey, icon }) => navRow(tab, t(labelKey), icon))}
+        <div className="mt-auto border-t border-primary-foreground/15 p-2">
+          <LanguageToggle variant="sidebar" collapsed={collapsed} />
+        </div>
         <button
           type="button"
-          title="Sign out"
+          title={t("nav.signOut")}
           className={cn(
             CELL,
             "h-14 shrink-0 hover:bg-primary-foreground/10",
@@ -201,7 +198,7 @@ export function StaffNav({
           }}
         >
           <FiLogOut size={16} aria-hidden className="shrink-0" />
-          <span className={cn(collapsed && "lg:hidden")}>Sign out</span>
+          <span className={cn(collapsed && "lg:hidden")}>{t("nav.signOut")}</span>
         </button>
       </nav>
     </div>
@@ -224,7 +221,7 @@ export function StaffNav({
         <button
           type="button"
           className="inline-flex h-8 w-8 items-center justify-center border border-border/40"
-          aria-label="Open menu"
+          aria-label={t("nav.openMenu")}
           onClick={() => setOpen(true)}
         >
           <FiMenu size={16} />
@@ -235,7 +232,7 @@ export function StaffNav({
         {open && (
           <m.button
             type="button"
-            aria-label="Close menu overlay"
+            aria-label={t("nav.closeMenu")}
             className="fixed inset-0 z-40 bg-ink/40 lg:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -259,9 +256,9 @@ export function StaffNav({
       <ConfirmDialog
         open={signOutOpen}
         onOpenChange={setSignOutOpen}
-        title="Sign out?"
-        description="Are you sure you want to sign out? You will need to sign in again to use the dashboard."
-        confirmLabel="Sign out"
+        title={t("signOut.title")}
+        description={t("signOut.body")}
+        confirmLabel={t("signOut.confirm")}
         pending={signingOut}
         onConfirm={signOut}
       />

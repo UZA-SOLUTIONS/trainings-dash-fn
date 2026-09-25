@@ -7,9 +7,10 @@ import {
   type AttendanceStatus,
 } from "@/services/attendanceService";
 import { getAssessment, listAssessments } from "@/services/assessmentService";
-import { listCohortIssues, type IssueSeverity } from "@/services/issueService";
+import { listCohortIssues } from "@/services/issueService";
 import { CardGridSkeleton } from "@/components/feedback/Skeleton";
-import { cn, humanize, LINK_TEXT, scoreTone, statusTone } from "@/lib/utils";
+import { cn, LINK_TEXT, scoreTone, statusTone } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 import {
   Table,
   TableBody,
@@ -19,21 +20,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-function formatShortDate(iso: string) {
+function formatShortDate(iso: string, locale: string) {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
+  return new Date(y, m - 1, d).toLocaleDateString(locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 }
 
-function severityLabel(severity: IssueSeverity) {
-  return humanize(severity);
-}
-
 export function OverviewActivity({ cohortId }: { cohortId: string }) {
+  const { t, locale, label } = useI18n();
   const sessionsQuery = useQuery({
     queryKey: ["attendance-history", cohortId],
     queryFn: () => listAttendanceSessions(cohortId),
@@ -98,37 +96,37 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Last roll call</TableHead>
-              <TableHead>Value</TableHead>
+              <TableHead>{t("overview.lastRoll")}</TableHead>
+              <TableHead>{t("common.value")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell>Present</TableCell>
+              <TableCell>{t("col.present")}</TableCell>
               <TableCell className={cn("tabular-nums", statusTone("present"))}>
                 {attendanceCounts.present}
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Session</TableCell>
+              <TableCell>{t("overview.session")}</TableCell>
               <TableCell>
-                {formatShortDate(latestSession.date)} · {humanize(latestSession.session_label)}
+                {formatShortDate(latestSession.date, locale)} · {label(latestSession.session_label)}
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Late</TableCell>
+              <TableCell>{t("col.late")}</TableCell>
               <TableCell className={cn("tabular-nums", statusTone("late"))}>
                 {attendanceCounts.late}
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Absent</TableCell>
+              <TableCell>{t("col.absent")}</TableCell>
               <TableCell className={cn("tabular-nums", statusTone("absent"))}>
                 {attendanceCounts.absent}
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Excused</TableCell>
+              <TableCell>{t("overview.excused")}</TableCell>
               <TableCell className={cn("tabular-nums", statusTone("excused"))}>
                 {attendanceCounts.excused}
               </TableCell>
@@ -139,7 +137,7 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
                   to={classroomHref("attendance", cohortId)}
                   className={cn("block px-3 py-2 hover:bg-accent/60", LINK_TEXT)}
                 >
-                  Open attendance
+                  {t("overview.openAttendance")}
                 </Link>
               </TableCell>
             </TableRow>
@@ -151,13 +149,13 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Latest marks</TableHead>
-              <TableHead>Value</TableHead>
+              <TableHead>{t("overview.latestMarks")}</TableHead>
+              <TableHead>{t("common.value")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell>Average</TableCell>
+              <TableCell>{t("col.average")}</TableCell>
               <TableCell
                 className={cn(
                   "tabular-nums",
@@ -172,13 +170,13 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Assessment</TableCell>
+              <TableCell>{t("overview.assessment")}</TableCell>
               <TableCell>{latestAssessment.title}</TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Scored</TableCell>
+              <TableCell>{t("overview.scored")}</TableCell>
               <TableCell className="tabular-nums">
-                {scored.length} of {scores.length} · {formatShortDate(latestAssessment.date)}
+                {t("overview.of", { value: scored.length, total: scores.length })} · {formatShortDate(latestAssessment.date, locale)}
               </TableCell>
             </TableRow>
             <TableRow>
@@ -187,7 +185,7 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
                   to={classroomHref("assessments", cohortId)}
                   className={cn("block px-3 py-2 hover:bg-accent/60", LINK_TEXT)}
                 >
-                  Open marks
+                  {t("overview.openMarks")}
                 </Link>
               </TableCell>
             </TableRow>
@@ -199,13 +197,13 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Open issues</TableHead>
-              <TableHead>Detail</TableHead>
+              <TableHead>{t("overview.openIssues")}</TableHead>
+              <TableHead>{t("common.detail")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell>Need action</TableCell>
+              <TableCell>{t("overview.needAction")}</TableCell>
               <TableCell className="tabular-nums">{unresolved.length}</TableCell>
             </TableRow>
             {previewIssues.map((issue) => (
@@ -213,11 +211,11 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
                 <TableCell>
                   <p className="truncate">{issue.title}</p>
                   <p className="truncate text-muted-foreground">
-                    {issue.candidate_name ?? issue.candidate_code ?? "Candidate"}
-                    {issue.status === "in_progress" ? " · In progress" : ""}
+                    {issue.candidate_name ?? issue.candidate_code ?? t("col.candidate")}
+                    {issue.status === "in_progress" ? ` · ${t("status.in_progress")}` : ""}
                   </p>
                 </TableCell>
-                <TableCell className={statusTone(issue.severity)}>{severityLabel(issue.severity)}</TableCell>
+                <TableCell className={statusTone(issue.severity)}>{label(issue.severity)}</TableCell>
               </TableRow>
             ))}
             <TableRow>
@@ -226,7 +224,7 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
                   to={classroomHref("issues", cohortId)}
                   className={cn("block px-3 py-2 hover:bg-accent/60", LINK_TEXT)}
                 >
-                  Open issues
+                  {t("overview.openIssuesLink")}
                 </Link>
               </TableCell>
             </TableRow>

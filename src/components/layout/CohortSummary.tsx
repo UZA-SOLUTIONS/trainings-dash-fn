@@ -11,8 +11,10 @@ import {
 } from "@/components/ui/table";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { formatDob } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 
 export function CohortSummary() {
+  const { t } = useI18n();
   const { cohortId } = useParams<{ cohortId: string }>();
   const { data, isPending } = useQuery({
     queryKey: ["cohort", cohortId],
@@ -37,11 +39,11 @@ export function CohortSummary() {
     <Table className="mb-6">
       <TableHeader>
         <TableRow>
-          <TableHead>Code</TableHead>
-          <TableHead>Intake</TableHead>
-          <TableHead>Programme</TableHead>
-          <TableHead>Dates</TableHead>
-          <TableHead>Location</TableHead>
+          <TableHead>{t("col.code")}</TableHead>
+          <TableHead>{t("col.intake")}</TableHead>
+          <TableHead>{t("col.programme")}</TableHead>
+          <TableHead>{t("col.dates")}</TableHead>
+          <TableHead>{t("col.location")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

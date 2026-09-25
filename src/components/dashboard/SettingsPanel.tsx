@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import * as authService from "@/services/authService";
-import { CANCEL_TEXT, LINK_TEXT, SAVE_TEXT } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
+import type { StaffRole } from "@/services/authService";
+import { cn, SAVE_TEXT, statusTone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,26 +30,82 @@ import {
   saveDashboardPreferences,
   type DashboardPreferences,
 } from "@/components/dashboard/preferences";
-import { roleLabel } from "@/lib/permissions";
 import { DASHBOARD_TABS, type DashboardTab } from "@/components/dashboard/types";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { PageTitle } from "@/components/layout/PageTitle";
+import { LanguageToggle } from "@/components/layout/LanguageToggle";
+import { useI18n } from "@/i18n/LanguageContext";
+import type { MessageKey } from "@/i18n/en";
 import { toast } from "sonner";
 
 const WORKSPACE_TABS = DASHBOARD_TABS.filter((t) => t.id !== "settings");
 
-function formatDate(value?: string) {
+const TAB_KEYS: Record<DashboardTab, MessageKey> = {
+  overview: "nav.overview",
+  cohorts: "nav.cohorts",
+  candidates: "nav.candidates",
+  settings: "nav.settings",
+  courses: "page.courses",
+  modules: "page.modules",
+};
+
+const TONE = {
+  forest: "bg-primary text-primary-foreground",
+  teal: "bg-chart-2 text-primary-foreground",
+  lime: "bg-chart-1 text-volt-foreground",
+  amber: "bg-chart-4 text-volt-foreground",
+  blue: "bg-chart-5 text-primary-foreground",
+} as const;
+
+const TONE_MUTED = {
+  forest: "text-primary-foreground/75",
+  teal: "text-primary-foreground/80",
+  lime: "text-volt-foreground/75",
+  amber: "text-volt-foreground/75",
+  blue: "text-primary-foreground/80",
+} as const;
+
+type SectionTone = keyof typeof TONE;
+
+function formatDate(value?: string, locale = "en-GB") {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString("en-RW", {
-    year: "numeric",
-    month: "long",
+  return new Date(value).toLocaleDateString(locale, {
     day: "numeric",
+    month: "short",
+    year: "numeric",
   });
+}
+
+function SettingsSection({
+  title,
+  description,
+  children,
+  className,
+  tone = "forest",
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  className?: string;
+  tone?: SectionTone;
+}) {
+  return (
+    <section className={cn("border border-border/40 bg-card", className)}>
+      <div className={cn("border-b border-background/25 px-4 py-3", TONE[tone])}>
+        <h2 className="text-sm font-medium">{title}</h2>
+        {description ? (
+          <p className={cn("mt-0.5 text-xs leading-relaxed", TONE_MUTED[tone])}>{description}</p>
+        ) : null}
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </section>
+  );
 }
 
 export function SettingsPanel() {
   const navigate = useNavigate();
   const { user, refreshUser, canAccessTab, can } = useAuth();
+  const { t, locale, label } = useI18n();
   const [prefs, setPrefs] = useState<DashboardPreferences>(() => loadDashboardPreferences());
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -59,7 +115,8 @@ export function SettingsPanel() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordBusy, setPasswordBusy] = useState(false);
 
-  const workspaceTabs = WORKSPACE_TABS.filter((t) => canAccessTab(t.id));
+  const workspaceTabs = WORKSPACE_TABS.filter((tab) => canAccessTab(tab.id));
+  const initial = (user?.full_name || user?.email || "?").charAt(0).toUpperCase();
 
   useEffect(() => {
     saveDashboardPreferences(prefs);
@@ -73,16 +130,16 @@ export function SettingsPanel() {
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!fullName.trim() || !email.trim()) {
-      toast.error("Name and email are required.");
+      toast.error(t("settings.nameEmailRequired"));
       return;
     }
     setProfileBusy(true);
     try {
       await authService.updateProfile(fullName.trim(), email.trim());
       await refreshUser();
-      toast.success("Profile updated");
+      toast.success(t("settings.profileUpdated"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not update profile");
+      toast.error(err instanceof Error ? err.message : t("settings.profileFail"));
     } finally {
       setProfileBusy(false);
     }
@@ -91,11 +148,11 @@ export function SettingsPanel() {
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (newPassword.length < 6) {
-      toast.error("New password must be at least 6 characters.");
+      toast.error(t("settings.passwordLen"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match.");
+      toast.error(t("settings.passwordMatch"));
       return;
     }
     setPasswordBusy(true);
@@ -104,9 +161,9 @@ export function SettingsPanel() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      toast.success("Password updated");
+      toast.success(t("settings.passwordUpdated"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not update password");
+      toast.error(err instanceof Error ? err.message : t("settings.passwordFail"));
     } finally {
       setPasswordBusy(false);
     }
@@ -114,44 +171,52 @@ export function SettingsPanel() {
 
   function handleDefaultTabChange(value: DashboardTab) {
     setPrefs((prev) => ({ ...prev, defaultTab: value }));
-    toast.success("Default page saved");
+    toast.success(t("settings.pageSaved"));
+  }
+
+  function openDefaultPage() {
+    navigate(
+      prefs.defaultTab === "courses"
+        ? "/courses"
+        : prefs.defaultTab === "modules"
+          ? "/modules"
+          : `/dashboard?tab=${prefs.defaultTab}`,
+    );
   }
 
   return (
-    <div>
-      <PageTitle>Settings</PageTitle>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-border/70 p-6">
-          <p className="text-eyebrow text-muted-foreground">Your account</p>
-          <div className="mt-5 flex h-16 w-16 items-center justify-center rounded-none bg-muted font-display text-2xl text-foreground">
-            {(user?.full_name || user?.email || "?").charAt(0).toUpperCase()}
-          </div>
-          <h2 className="mt-4 text-2xl">
-            {user?.full_name || "Staff member"}
-          </h2>
-          <p className="mt-1 text-base text-muted-foreground">{user?.email}</p>
-          {user?.role && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Badge>{roleLabel(user.role)}</Badge>
-            </div>
-          )}
-          <dl className="mt-6 space-y-3 text-base">
-            <div>
-              <dt className="text-eyebrow text-muted-foreground">Member since</dt>
-              <dd className="mt-1 font-medium">{formatDate(user?.created_at)}</dd>
-            </div>
-            <div>
-              <dt className="text-eyebrow text-muted-foreground">User ID</dt>
-              <dd className="mt-1 font-mono text-sm text-muted-foreground">{user?.id ?? "—"}</dd>
-            </div>
-          </dl>
-        </Card>
+    <div className="pb-8">
+      <PageTitle description={t("page.settingsDesc")}>{t("page.settings")}</PageTitle>
 
-        <Card className="border-border/70 p-6">
-          <h2 className="text-sm">Edit profile</h2>
-          <form className="mt-6 space-y-5" onSubmit={handleProfileSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="profile-name">Full name</Label>
+      <div className="grid overflow-hidden border border-border/40 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_8rem_9rem]">
+        <div className={cn("flex items-center gap-4 px-4 py-4", TONE.forest)}>
+          <div className="flex size-14 shrink-0 items-center justify-center bg-volt text-xl font-semibold text-volt-foreground">
+            {initial}
+          </div>
+          <div className="min-w-0">
+            <p className={cn("text-xs", TONE_MUTED.forest)}>{t("settings.account")}</p>
+            <p className="truncate text-lg font-semibold">{user?.full_name || t("settings.staffMember")}</p>
+          </div>
+        </div>
+        <div className={cn("flex flex-col justify-center px-4 py-4", TONE.teal)}>
+          <p className={cn("text-xs", TONE_MUTED.teal)}>{t("settings.email")}</p>
+          <p className="mt-0.5 truncate text-sm font-medium">{user?.email}</p>
+        </div>
+        <div className={cn("flex flex-col justify-center px-4 py-4", TONE.lime)}>
+          <p className={cn("text-xs", TONE_MUTED.lime)}>{t("settings.role")}</p>
+          <p className="mt-0.5 text-sm font-medium">{user ? label(user.role) : "—"}</p>
+        </div>
+        <div className={cn("flex flex-col justify-center px-4 py-4", TONE.amber)}>
+          <p className={cn("text-xs", TONE_MUTED.amber)}>{t("settings.memberSince")}</p>
+          <p className="mt-0.5 text-sm font-medium">{formatDate(user?.created_at, locale)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <SettingsSection tone="forest" title={t("settings.profile")} description={t("settings.profileDesc")}>
+          <form className="space-y-4" onSubmit={handleProfileSubmit}>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-name">{t("settings.fullName")}</Label>
               <Input
                 id="profile-name"
                 value={fullName}
@@ -161,8 +226,8 @@ export function SettingsPanel() {
                 className="h-11"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-email">Email</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-email">{t("settings.workEmail")}</Label>
               <Input
                 id="profile-email"
                 type="email"
@@ -173,78 +238,27 @@ export function SettingsPanel() {
                 className="h-11"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-role">{t("settings.role")}</Label>
               <Input
-                value={user ? roleLabel(user.role) : "—"}
+                id="profile-role"
+                value={user ? label(user.role) : "—"}
                 disabled
                 className="h-11"
               />
             </div>
-            <Button type="submit" disabled={profileBusy}>
-              {profileBusy ? "Saving…" : "Save profile"}
-            </Button>
-          </form>
-        </Card>
-
-        <Card className="border-border/70 p-6">
-          <h2 className="text-sm">Workspace</h2>
-          <div className="mt-6 space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="default-tab">Default page after sign-in</Label>
-              <Select value={prefs.defaultTab} onValueChange={handleDefaultTabChange}>
-                <SelectTrigger id="default-tab" className="h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {workspaceTabs.map((tab) => (
-                    <SelectItem key={tab.id} value={tab.id}>
-                      {tab.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() =>
-                  navigate(
-                    prefs.defaultTab === "courses"
-                      ? "/courses"
-                      : prefs.defaultTab === "modules"
-                        ? "/modules"
-                        : `/dashboard?tab=${prefs.defaultTab}`,
-                  )
-                }
-              >
-                Open default page
+            <div className="flex justify-end border-t border-border/40 pt-4">
+              <Button type="submit" disabled={profileBusy}>
+                {profileBusy ? t("common.saving") : t("settings.saveProfile")}
               </Button>
             </div>
+          </form>
+        </SettingsSection>
 
-            <label className="flex items-center justify-between gap-4">
-              <div>
-                <p className="font-medium">Email notifications</p>
-                <p className="text-sm text-muted-foreground">
-                  Receive updates about cohort and candidate changes.
-                </p>
-              </div>
-              <Switch
-                checked={prefs.emailNotifications}
-                onCheckedChange={(checked) =>
-                  setPrefs((prev) => ({ ...prev, emailNotifications: checked }))
-                }
-              />
-            </label>
-          </div>
-        </Card>
-
-        <Card className="border-border/70 p-6">
-          <h2 className="text-sm">Security</h2>
-          <form className="mt-6 space-y-4" onSubmit={handlePasswordSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="current-password">Current password</Label>
+        <SettingsSection tone="blue" title={t("settings.security")} description={t("settings.securityDesc")}>
+          <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+            <div className="space-y-1.5">
+              <Label htmlFor="current-password">{t("settings.currentPassword")}</Label>
               <Input
                 id="current-password"
                 type="password"
@@ -255,8 +269,8 @@ export function SettingsPanel() {
                 autoComplete="current-password"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-password">New password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password">{t("settings.newPassword")}</Label>
               <Input
                 id="new-password"
                 type="password"
@@ -268,8 +282,8 @@ export function SettingsPanel() {
                 autoComplete="new-password"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm new password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-password">{t("settings.confirmPassword")}</Label>
               <Input
                 id="confirm-password"
                 type="password"
@@ -281,12 +295,65 @@ export function SettingsPanel() {
                 autoComplete="new-password"
               />
             </div>
-            <Button type="submit" disabled={passwordBusy}>
-              {passwordBusy ? "Updating…" : "Update password"}
-            </Button>
+            <div className="flex justify-end border-t border-border/40 pt-4">
+              <Button type="submit" disabled={passwordBusy}>
+                {passwordBusy ? t("common.updating") : t("settings.updatePassword")}
+              </Button>
+            </div>
           </form>
-        </Card>
+        </SettingsSection>
       </div>
+
+      <SettingsSection
+        className="mt-4"
+        tone="teal"
+        title={t("settings.workspace")}
+        description={t("settings.workspaceDesc")}
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="default-tab">{t("settings.defaultPage")}</Label>
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={prefs.defaultTab} onValueChange={handleDefaultTabChange}>
+                <SelectTrigger id="default-tab" className="h-11 min-w-[12rem] flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {workspaceTabs.map((tab) => (
+                    <SelectItem key={tab.id} value={tab.id}>
+                      {t(TAB_KEYS[tab.id])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button type="button" className={SAVE_TEXT} onClick={openDefaultPage}>
+                {t("common.open")}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("settings.language")}</Label>
+            <p className="text-xs text-muted-foreground">{t("settings.languageDesc")}</p>
+            <div className="max-w-[10rem]">
+              <LanguageToggle />
+            </div>
+          </div>
+          <label className="flex items-center justify-between gap-4 border border-chart-2/40 bg-chart-2/10 px-4 py-3 lg:col-span-2">
+            <span>
+              <span className="block text-sm font-medium">{t("settings.emailNotes")}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {t("settings.emailNotesHint")}
+              </span>
+            </span>
+            <Switch
+              checked={prefs.emailNotifications}
+              onCheckedChange={(checked) =>
+                setPrefs((prev) => ({ ...prev, emailNotifications: checked }))
+              }
+            />
+          </label>
+        </div>
+      </SettingsSection>
 
       {can("staff.manage") && <StaffAccountsCard />}
     </div>
@@ -295,6 +362,7 @@ export function SettingsPanel() {
 
 function StaffAccountsCard() {
   const queryClient = useQueryClient();
+  const { t, locale, label } = useI18n();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -314,7 +382,7 @@ function StaffAccountsCard() {
         role,
       }),
     onSuccess: () => {
-      toast.success("Staff account created");
+      toast.success(t("settings.staffCreated"));
       setFullName("");
       setEmail("");
       setPassword("");
@@ -325,21 +393,21 @@ function StaffAccountsCard() {
   });
 
   return (
-    <Card className="mt-6 border-border/70 p-6">
-      <h2 className="text-sm">Staff accounts</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Invite admins and instructors. Instructors only see the cohorts they are assigned to.
-      </p>
-
+    <SettingsSection
+      className="mt-4"
+      tone="amber"
+      title={t("settings.staff")}
+      description={t("settings.staffDesc")}
+    >
       <form
-        className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-3 border border-chart-4/40 bg-chart-4/10 p-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_10rem_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           invite.mutate();
         }}
       >
-        <div className="space-y-2">
-          <Label htmlFor="staff-name">Full name</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="staff-name">{t("settings.fullName")}</Label>
           <Input
             id="staff-name"
             value={fullName}
@@ -347,10 +415,11 @@ function StaffAccountsCard() {
             required
             minLength={2}
             className="h-11"
+            placeholder="Jane Uwase"
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="staff-email">Email</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="staff-email">{t("settings.email")}</Label>
           <Input
             id="staff-email"
             type="email"
@@ -358,10 +427,11 @@ function StaffAccountsCard() {
             onChange={(e) => setEmail(e.target.value)}
             required
             className="h-11"
+            placeholder="name@organisation.rw"
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="staff-password">Temporary password</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="staff-password">{t("settings.tempPassword")}</Label>
           <Input
             id="staff-password"
             type="password"
@@ -373,38 +443,38 @@ function StaffAccountsCard() {
             autoComplete="new-password"
           />
         </div>
-        <div className="space-y-2">
-          <Label>Role</Label>
+        <div className="space-y-1.5">
+          <Label>{t("settings.role")}</Label>
           <Select value={role} onValueChange={(value: StaffRole) => setRole(value)}>
             <SelectTrigger className="h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="instructor">Instructor</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="instructor">{t("role.instructor")}</SelectItem>
+              <SelectItem value="admin">{t("role.admin")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <div className="md:col-span-2 lg:col-span-4">
-          <Button type="submit" disabled={invite.isPending || fullName.trim().length < 2}>
-            {invite.isPending ? "Inviting…" : "Invite staff"}
+        <div className="flex items-end">
+          <Button type="submit" className="h-11 w-full xl:w-auto" disabled={invite.isPending || fullName.trim().length < 2}>
+            {invite.isPending ? t("common.inviting") : t("settings.invite")}
           </Button>
         </div>
       </form>
 
-      <div className="mt-8">
+      <div className="mt-4">
         {isPending ? (
           <TableSkeleton cols={4} rows={4} />
         ) : staff.length === 0 ? (
-          <p className="text-muted-foreground">No staff accounts yet.</p>
+          <p className="text-sm text-muted-foreground">{t("settings.noStaff")}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Joined</TableHead>
+                <TableHead>{t("col.name")}</TableHead>
+                <TableHead>{t("col.email")}</TableHead>
+                <TableHead>{t("col.role")}</TableHead>
+                <TableHead>{t("col.joined")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -412,16 +482,18 @@ function StaffAccountsCard() {
                 <TableRow key={member.id}>
                   <TableCell>{member.full_name || "—"}</TableCell>
                   <TableCell>{member.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{roleLabel(member.role)}</Badge>
+                  <TableCell className={statusTone(member.role)}>
+                    <Badge variant={member.role === "admin" ? "default" : "secondary"}>
+                      {label(member.role)}
+                    </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{formatDate(member.created_at)}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(member.created_at, locale)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
       </div>
-    </Card>
+    </SettingsSection>
   );
 }

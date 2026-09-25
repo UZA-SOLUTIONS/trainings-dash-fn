@@ -30,11 +30,12 @@ import { ReasonDialog } from "@/components/ui/reason-dialog";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { DELETE_TEXT, formatDob, humanize, LINK_TEXT, SAVE_TEXT, cn, statusTone } from "@/lib/utils";
+import { DELETE_TEXT, formatDob, LINK_TEXT, SAVE_TEXT, cn, statusTone } from "@/lib/utils";
 import { CELL_SELECT, SheetInput } from "@/components/ui/sheet-input";
 import { CertificatePreviewDialog } from "@/components/certificate/CertificatePreviewDialog";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { CohortSummary } from "@/components/layout/CohortSummary";
+import { useI18n } from "@/i18n/LanguageContext";
 
 const STATUSES = ["enrolled", "waitlisted", "rejected", "withdrawn", "graduated"] as const;
 const TRAINING = ["not_started", "in_progress", "completed", "failed"] as const;
@@ -53,6 +54,7 @@ export default function CohortDetail() {
   const [rejecting, setRejecting] = useState<Candidate | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const { can, isInstructor } = useAuth();
+  const { t, label } = useI18n();
   const canMembership = can("candidates.membership");
   const canTraining = can("candidates.training");
   const canDelete = can("candidates.delete");
@@ -73,7 +75,7 @@ export default function CohortDetail() {
       await updateCandidate(id, patch);
     },
     onSuccess: () => {
-      toast.success("Candidate updated");
+      toast.success(t("toast.updated"));
       setRejecting(null);
       invalidate();
     },
@@ -128,16 +130,16 @@ export default function CohortDetail() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Candidate</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>National ID</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Date of birth</TableHead>
-              <TableHead>District</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Training</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t("col.candidate")}</TableHead>
+              <TableHead>{t("col.code")}</TableHead>
+              <TableHead>{t("col.phone")}</TableHead>
+              <TableHead>{t("col.nationalId")}</TableHead>
+              <TableHead>{t("col.email")}</TableHead>
+              <TableHead>{t("col.dob")}</TableHead>
+              <TableHead>{t("col.district")}</TableHead>
+              <TableHead>{t("col.status")}</TableHead>
+              <TableHead>{t("col.training")}</TableHead>
+              <TableHead>{t("common.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -236,18 +238,18 @@ export default function CohortDetail() {
                       {canMembership ? (
                         <Select value={c.status} onValueChange={(v) => handleStatusChange(c, v)}>
                           <SelectTrigger className={cn(CELL_SELECT, statusTone(c.status))}>
-                            <SelectValue>{humanize(c.status)}</SelectValue>
+                            <SelectValue>{label(c.status)}</SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {STATUSES.map((s) => (
                               <SelectItem key={s} value={s} className={statusTone(s)}>
-                                {humanize(s)}
+                                {label(s)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       ) : (
-                        humanize(c.status)
+                        label(c.status)
                       )}
                     </TableCell>
                     <TableCell className={canTraining ? "p-0" : statusTone(c.training_status)}>
@@ -259,24 +261,24 @@ export default function CohortDetail() {
                           }
                         >
                           <SelectTrigger className={cn(CELL_SELECT, statusTone(c.training_status))}>
-                            <SelectValue>{humanize(c.training_status)}</SelectValue>
+                            <SelectValue>{label(c.training_status)}</SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {TRAINING.map((s) => (
                               <SelectItem key={s} value={s} className={statusTone(s)}>
-                                {humanize(s)}
+                                {label(s)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       ) : (
-                        humanize(c.training_status)
+                        label(c.training_status)
                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Link to={`/candidates/${c.id}`} className={LINK_TEXT}>
-                          Profile
+                          {t("col.profile")}
                         </Link>
                         {c.status === "graduated" && (
                           <button
@@ -284,7 +286,7 @@ export default function CohortDetail() {
                             className={LINK_TEXT}
                             onClick={() => setPreviewId(c.id)}
                           >
-                            Certificate
+                            {t("page.certificate")}
                           </button>
                         )}
                         {canDelete && owned && (
@@ -293,7 +295,7 @@ export default function CohortDetail() {
                             className={DELETE_TEXT}
                             onClick={() => setPendingDelete(c)}
                           >
-                            Delete
+                            {t("common.delete")}
                           </button>
                         )}
                       </div>
@@ -309,7 +311,7 @@ export default function CohortDetail() {
 
   return (
     <div>
-      <PageTitle>Roster</PageTitle>
+      <PageTitle>{t("page.roster")}</PageTitle>
       <CohortSummary />
       <div className="space-y-6">
         {isPending && <TableSkeleton />}
@@ -317,14 +319,14 @@ export default function CohortDetail() {
           <>
             {canMembership && (
               <div>
-                <h2 className="mb-1 text-xs text-muted-foreground">Bulk add</h2>
+                <h2 className="mb-1 text-xs text-muted-foreground">{t("roster.bulkAdd")}</h2>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Full name</TableHead>
-                      <TableHead>National ID</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>{t("col.fullName")}</TableHead>
+                      <TableHead>{t("col.nationalId")}</TableHead>
+                      <TableHead>{t("col.phone")}</TableHead>
+                      <TableHead>{t("common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -340,7 +342,7 @@ export default function CohortDetail() {
                             }}
                             onSave={() => bulk.mutate()}
                             pending={bulk.isPending}
-                            placeholder="Full name"
+                            placeholder={t("col.fullName")}
                           />
                         </TableCell>
                         <TableCell>
@@ -353,7 +355,7 @@ export default function CohortDetail() {
                             }}
                             onSave={() => bulk.mutate()}
                             pending={bulk.isPending}
-                            placeholder="National ID"
+                            placeholder={t("col.nationalId")}
                           />
                         </TableCell>
                         <TableCell>
@@ -366,7 +368,7 @@ export default function CohortDetail() {
                             }}
                             onSave={() => bulk.mutate()}
                             pending={bulk.isPending}
-                            placeholder="Phone"
+                            placeholder={t("col.phone")}
                           />
                         </TableCell>
                         <TableCell>
@@ -376,7 +378,7 @@ export default function CohortDetail() {
                               className={DELETE_TEXT}
                               onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== index))}
                             >
-                              Remove
+                              {t("common.remove")}
                             </button>
                           )}
                         </TableCell>
@@ -392,19 +394,19 @@ export default function CohortDetail() {
                       setBulkRows([...bulkRows, { full_name: "", national_id: "", phone: "" }])
                     }
                   >
-                    Add row
+                    {t("roster.addRow")}
                   </button>
                 </div>
               </div>
             )}
-            <Section title={`Enrolled (${enrolled.length})`}>
-              <CandidateTable rows={enrolled} empty="No candidates enrolled yet." />
+            <Section title={t("roster.enrolledN", { count: enrolled.length })}>
+              <CandidateTable rows={enrolled} empty={t("empty.noEnrolledYet")} />
             </Section>
-            <Section title={`Waiting list (${waiting.length})`}>
-              <CandidateTable rows={waiting} empty="Nobody is waiting for a seat." />
+            <Section title={t("roster.waitingN", { count: waiting.length })}>
+              <CandidateTable rows={waiting} empty={t("empty.noWaiting")} />
             </Section>
             {inactive.length > 0 && (
-              <Section title={`Rejected / withdrawn (${inactive.length})`}>
+              <Section title={t("roster.inactiveN", { count: inactive.length })}>
                 <CandidateTable rows={inactive} empty="" />
               </Section>
             )}
@@ -416,9 +418,9 @@ export default function CohortDetail() {
         onOpenChange={(open) => {
           if (!open) setPendingDelete(null);
         }}
-        title="Delete candidate"
-        description={pendingDelete ? `Delete “${pendingDelete.full_name}”? Related attendance, scores, and issues will be removed.` : ""}
-        confirmLabel="Delete candidate"
+        title={t("dialog.deleteCandidate")}
+        description={pendingDelete ? t("dialog.deleteCandidateBody", { name: pendingDelete.full_name }) : ""}
+        confirmLabel={t("dialog.deleteCandidateConfirm")}
         pending={remove.isPending}
         onConfirm={async () => {
           if (pendingDelete) await remove.mutateAsync(pendingDelete.id);
@@ -429,9 +431,9 @@ export default function CohortDetail() {
         onOpenChange={(open) => {
           if (!open) setRejecting(null);
         }}
-        title="Disqualify candidate"
-        description="A reason is required to reject this candidate."
-        confirmLabel="Reject"
+        title={t("dialog.disqualify")}
+        description={t("dialog.disqualifyBody")}
+        confirmLabel={t("dialog.reject")}
         pending={update.isPending}
         onConfirm={async (reason) => {
           if (!rejecting) return;

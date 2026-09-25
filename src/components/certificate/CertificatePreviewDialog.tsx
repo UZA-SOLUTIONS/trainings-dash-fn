@@ -7,6 +7,7 @@ import { CertificateSheet } from "@/components/certificate/CertificateSheet";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { CANCEL_TEXT, LINK_TEXT, SAVE_TEXT } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 
 const CERT_W = 1100;
 const CERT_H = 778;
@@ -22,6 +23,7 @@ export function CertificatePreviewDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useI18n();
   const sheetRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [scale, setScale] = useState(0.8);
@@ -76,7 +78,7 @@ export function CertificatePreviewDialog({
         className="max-w-none overflow-hidden border border-border/40 bg-white p-4 shadow-none"
         style={{ width: previewW + PAD * 2 }}
       >
-        <DialogTitle className="sr-only">Certificate of Completion</DialogTitle>
+        <DialogTitle className="sr-only">{t("page.certificate")}</DialogTitle>
         <DialogDescription className="sr-only">
           {candidate?.full_name ?? "Graduate certificate preview"}
         </DialogDescription>
@@ -89,7 +91,7 @@ export function CertificatePreviewDialog({
           )}
           {isError && (
             <p className="py-16 text-center text-sm text-destructive">
-              {error instanceof Error ? error.message : "Could not load certificate"}
+              {error instanceof Error ? error.message : t("cert.loading")}
             </p>
           )}
           {candidate && (
@@ -119,7 +121,7 @@ export function CertificatePreviewDialog({
               disabled={!candidate || busy}
               onClick={handleDownload}
             >
-              {busy ? "Downloading…" : "Download"}
+              {busy ? t("reports.downloading") : t("common.download")}
             </button>
             <button
               type="button"
@@ -127,10 +129,10 @@ export function CertificatePreviewDialog({
               disabled={!candidate}
               onClick={() => window.print()}
             >
-              Print
+              {t("common.print")}
             </button>
             <button type="button" className={CANCEL_TEXT} onClick={() => onOpenChange(false)}>
-              Close
+              {t("common.close")}
             </button>
           </div>
         </div>

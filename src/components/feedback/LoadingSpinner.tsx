@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { m } from "framer-motion";
+import { useI18n } from "@/i18n/LanguageContext";
 
 export function LoadingSpinner({
   label,
@@ -8,6 +9,7 @@ export function LoadingSpinner({
   label?: string;
   className?: string;
 }) {
+  const { t } = useI18n();
   return (
     <m.div
       className={cn("flex flex-col items-center justify-center gap-3 py-16", className)}
@@ -26,7 +28,7 @@ export function LoadingSpinner({
         />
       </div>
       {label ? <p className="text-sm text-muted-foreground">{label}</p> : null}
-      <span className="sr-only">{label ?? "Loading"}</span>
+      <span className="sr-only">{label ?? t("auth.loading")}</span>
     </m.div>
   );
 }

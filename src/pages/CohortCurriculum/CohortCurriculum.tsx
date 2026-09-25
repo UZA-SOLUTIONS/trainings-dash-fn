@@ -29,6 +29,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { cn, DELETE_TEXT, LINK_TEXT, SAVE_TEXT } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 
 function formatBytes(size: number) {
   if (size < 1024) return `${size} B`;
@@ -49,6 +50,7 @@ export default function CohortCurriculum() {
   const { cohortId } = useParams<{ cohortId: string }>();
   const queryClient = useQueryClient();
   const { can } = useAuth();
+  const { t } = useI18n();
   const canWrite = can("curriculum.write");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -95,7 +97,7 @@ export default function CohortCurriculum() {
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
-      if (!selected) throw new Error("Choose a module first");
+      if (!selected) throw new Error(t("curriculum.chooseModule"));
       const data = await readFileAsBase64(file);
       return addModuleAttachment(selected.id, {
         name: file.name,
@@ -105,7 +107,7 @@ export default function CohortCurriculum() {
       });
     },
     onSuccess: () => {
-      toast.success("Document added");
+      toast.success(t("toast.documentAdded"));
       refreshCourse();
     },
     onError: (err: Error) => toast.error(err.message || "Could not add document"),
@@ -117,7 +119,7 @@ export default function CohortCurriculum() {
       return removeModuleAttachment(selected.id, attachment.id);
     },
     onSuccess: () => {
-      toast.success("Document removed");
+      toast.success(t("toast.documentRemoved"));
       setPendingDelete(null);
       refreshCourse();
     },
@@ -128,11 +130,11 @@ export default function CohortCurriculum() {
     if (!files?.length || !selected) return;
     for (const file of Array.from(files)) {
       if (file.size > 2_500_000) {
-        toast.error(`“${file.name}” is too large (max 2.5 MB)`);
+        toast.error(t("curriculum.fileTooLarge", { name: file.name }));
         continue;
       }
       if (documents.length >= 8) {
-        toast.error("Maximum 8 documents per module");
+        toast.error(t("curriculum.maxDocs"));
         break;
       }
       await upload.mutateAsync(file).catch(() => undefined);
@@ -143,17 +145,17 @@ export default function CohortCurriculum() {
   function handleDownload(moduleId: string, att: ModuleAttachment) {
     if (!att.id) return;
     void downloadModuleAttachment(moduleId, att.id, att.name).catch((err: Error) =>
-      toast.error(err.message || "Download failed"),
+      toast.error(err.message || t("toast.downloadFailed")),
     );
   }
 
   return (
     <div>
-      <PageTitle>Curriculum</PageTitle>
+      <PageTitle>{t("page.curriculum")}</PageTitle>
       <CohortSummary />
       <section className="space-y-4">
         {!courseId && !cohortLoading && (
-          <EmptyState message="No course is assigned to this class yet. UZA attaches the programme when it publishes the intake." />
+          <EmptyState message={t("empty.noCourse")} />
         )}
         {(cohortLoading || (courseId && courseLoading)) && <TableSkeleton cols={5} rows={6} />}
         {courseData && (
@@ -161,9 +163,9 @@ export default function CohortCurriculum() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Programme</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead>{t("col.programme")}</TableHead>
+                  <TableHead>{t("col.code")}</TableHead>
+                  <TableHead>{t("col.description")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -189,17 +191,17 @@ export default function CohortCurriculum() {
               <TableHeader>
                 <TableRow>
                   <TableHead>#</TableHead>
-                  <TableHead>Module</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>Documents</TableHead>
+                  <TableHead>{t("col.module")}</TableHead>
+                  <TableHead>{t("col.code")}</TableHead>
+                  <TableHead>{t("col.hours")}</TableHead>
+                  <TableHead>{t("col.documents")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {modules.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-muted-foreground">
-                      This course has no modules yet.
+                      {t("empty.noModules")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -225,26 +227,26 @@ export default function CohortCurriculum() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Module notes</TableHead>
-                      <TableHead>Detail</TableHead>
+                      <TableHead>{t("col.moduleNotes")}</TableHead>
+                      <TableHead>{t("common.detail")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     <TableRow>
-                      <TableCell>Title</TableCell>
+                      <TableCell>{t("col.title")}</TableCell>
                       <TableCell>
                         {selected.name}{" "}
                         <span className="font-mono text-muted-foreground">({selected.code})</span>
                       </TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell>Summary</TableCell>
+                      <TableCell>{t("col.summary")}</TableCell>
                       <TableCell className="whitespace-pre-wrap">
                         {selected.description || "—"}
                       </TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell>Teaching notes</TableCell>
+                      <TableCell>{t("col.teachingNotes")}</TableCell>
                       <TableCell className="whitespace-pre-wrap">{selected.content || "—"}</TableCell>
                     </TableRow>
                     {(selected.contents ?? []).map((section, index) => (
@@ -260,7 +262,7 @@ export default function CohortCurriculum() {
 
                 <div>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-sm">Documents for this module</h2>
+                    <h2 className="text-sm">{t("curriculum.docsForModule")}</h2>
                     {canWrite && (
                       <>
                         <button
@@ -269,7 +271,7 @@ export default function CohortCurriculum() {
                           disabled={upload.isPending || documents.length >= 8}
                           onClick={() => fileInputRef.current?.click()}
                         >
-                          {upload.isPending ? "Uploading…" : "Add PDF"}
+                          {upload.isPending ? t("action.uploading") : t("action.addPdf")}
                         </button>
                         <input
                           ref={fileInputRef}
@@ -285,18 +287,18 @@ export default function CohortCurriculum() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Document</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Size</TableHead>
-                        <TableHead>Open</TableHead>
+                        <TableHead>{t("col.document")}</TableHead>
+                        <TableHead>{t("col.type")}</TableHead>
+                        <TableHead>{t("col.size")}</TableHead>
+                        <TableHead>{t("common.open")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {documents.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={4} className="text-muted-foreground">
-                            No PDFs or teaching files on this module yet.
-                            {canWrite ? " Add a PDF for instructors to view and use." : ""}
+                            {t("empty.noDocs")}
+                            {canWrite ? t("empty.noDocsHint") : ""}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -312,14 +314,14 @@ export default function CohortCurriculum() {
                                   className={LINK_TEXT}
                                   onClick={() => setPreview({ moduleId: selected.id, attachment: att })}
                                 >
-                                  View
+                                  {t("common.view")}
                                 </button>
                                 <button
                                   type="button"
                                   className={LINK_TEXT}
                                   onClick={() => handleDownload(selected.id, att)}
                                 >
-                                  Download
+                                  {t("common.download")}
                                 </button>
                                 {canWrite && att.id && (
                                   <button
@@ -327,7 +329,7 @@ export default function CohortCurriculum() {
                                     className={DELETE_TEXT}
                                     onClick={() => setPendingDelete(att)}
                                   >
-                                    Remove
+                                    {t("common.remove")}
                                   </button>
                                 )}
                               </div>
@@ -361,13 +363,13 @@ export default function CohortCurriculum() {
         onOpenChange={(open) => {
           if (!open) setPendingDelete(null);
         }}
-        title="Remove document"
+        title={t("dialog.removeDocument")}
         description={
           pendingDelete
-            ? `Remove “${pendingDelete.name}” from this module? Instructors will no longer see it.`
+            ? t("dialog.removeDocumentBody", { name: pendingDelete.name })
             : ""
         }
-        confirmLabel="Remove document"
+        confirmLabel={t("dialog.removeDocumentConfirm")}
         pending={remove.isPending}
         onConfirm={async () => {
           if (pendingDelete) await remove.mutateAsync(pendingDelete);

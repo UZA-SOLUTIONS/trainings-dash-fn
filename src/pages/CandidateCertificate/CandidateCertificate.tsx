@@ -6,8 +6,10 @@ import { Skeleton } from "@/components/feedback/Skeleton";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { FadeIn } from "@/components/motion/FadeIn";
 import { LINK_TEXT } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 
 export default function CandidateCertificate() {
+  const { t } = useI18n();
   const { candidateId } = useParams<{ candidateId: string }>();
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["candidate", candidateId],
@@ -33,7 +35,7 @@ export default function CandidateCertificate() {
   if (isError || !data?.candidate) {
     return (
       <p className="p-10 text-destructive">
-        {error instanceof Error ? error.message : "Candidate not found"}
+        {error instanceof Error ? error.message : t("cert.notFound")}
       </p>
     );
   }
@@ -50,11 +52,11 @@ export default function CandidateCertificate() {
         <PageTitle
           actions={
             <button type="button" className={LINK_TEXT} onClick={() => window.print()}>
-              Print
+              {t("common.print")}
             </button>
           }
         >
-          Certificate
+          {t("page.certificate")}
         </PageTitle>
       </div>
       <div className="mx-auto mt-4 max-w-5xl print:mt-0 print:h-screen print:max-w-none">

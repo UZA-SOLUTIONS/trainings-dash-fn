@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { loadDashboardPreferences } from "@/components/dashboard/preferences";
 import { LoadingSpinner } from "@/components/feedback/LoadingSpinner";
+import { useI18n } from "@/i18n/LanguageContext";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading, login } = useAuth();
+  const { t } = useI18n();
   const fromState = (location.state as { from?: string } | null)?.from;
   const defaultDashboard = `/dashboard?tab=${loadDashboardPreferences().defaultTab}`;
   const redirectTo = fromState ?? defaultDashboard;
@@ -29,7 +31,7 @@ export default function Login() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (mode === "forgot") {
-      toast.message("Ask an admin to set a temporary password in Settings.");
+      toast.message(t("auth.forgotHint"));
       setMode("signin");
       return;
     }
@@ -39,23 +41,23 @@ export default function Login() {
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setBusy(false);
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : t("auth.error"));
     }
   }
 
   if (loading || busy) {
-    return <LoadingSpinner label={busy ? "Signing in…" : "Loading…"} />;
+    return <LoadingSpinner label={busy ? t("auth.signingIn") : t("auth.loading")} />;
   }
 
   return (
     <div className="w-full">
       <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">
-        {mode === "signin" ? "Sign in" : "Forgot password"}
+        {mode === "signin" ? t("auth.signIn") : t("auth.forgot")}
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-7 space-y-4 text-left">
         <div className="space-y-1.5">
-          <Label htmlFor="email">Work email</Label>
+          <Label htmlFor="email">{t("auth.email")}</Label>
           <Input
             id="email"
             type="email"
@@ -70,7 +72,7 @@ export default function Login() {
         </div>
         {mode === "signin" && (
           <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("auth.password")}</Label>
             <div className="relative">
               <Input
                 id="password"
@@ -86,7 +88,7 @@ export default function Login() {
                 type="button"
                 className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => setShowPassword((open) => !open)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                 aria-pressed={showPassword}
               >
                 {showPassword ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
@@ -95,7 +97,7 @@ export default function Login() {
           </div>
         )}
         <Button type="submit" className="mt-2 h-11 w-full" disabled={busy}>
-          {busy ? "Please wait…" : "Continue"}
+          {busy ? t("auth.wait") : t("auth.continue")}
         </Button>
       </form>
 
@@ -105,7 +107,7 @@ export default function Login() {
           className="w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setMode(mode === "signin" ? "forgot" : "signin")}
         >
-          {mode === "signin" ? "Forgot password" : "Back to sign in"}
+          {mode === "signin" ? t("auth.forgot") : t("auth.backToSignIn")}
         </button>
       </div>
     </div>

@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/i18n/LanguageContext";
 
 export function ReasonDialog({
   open,
@@ -28,6 +29,7 @@ export function ReasonDialog({
   pending?: boolean;
   onConfirm: (reason: string) => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const [reason, setReason] = useState("");
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export function ReasonDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="mt-4 space-y-1.5">
-          <Label htmlFor="reason-field">Reason</Label>
+          <Label htmlFor="reason-field">{t("col.reason")}</Label>
           <Textarea
             id="reason-field"
             value={reason}
@@ -59,7 +61,7 @@ export function ReasonDialog({
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             type="button"
@@ -68,7 +70,7 @@ export function ReasonDialog({
               await onConfirm(reason.trim());
             }}
           >
-            {pending ? "Saving…" : confirmLabel}
+            {pending ? t("common.saving") : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

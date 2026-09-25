@@ -7,6 +7,7 @@ import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { CohortSummary } from "@/components/layout/CohortSummary";
 import { cn, scoreTone } from "@/lib/utils";
+import { useI18n } from "@/i18n/LanguageContext";
 import {
   Table,
   TableBody,
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/table";
 
 export default function CohortGradebook() {
+  const { t } = useI18n();
   const { cohortId } = useParams<{ cohortId: string }>();
   const { data: cohortData } = useQuery({
     queryKey: ["cohort", cohortId],
@@ -32,24 +34,24 @@ export default function CohortGradebook() {
 
   return (
     <div>
-      <PageTitle>Gradebook</PageTitle>
+      <PageTitle>{t("page.gradebook")}</PageTitle>
       <CohortSummary />
       <section>
         {scoresLoading ? (
           <TableSkeleton cols={6} />
         ) : !scores || scores.assessments.length === 0 ? (
-          <EmptyState message="No assessments yet. Add quizzes, tests, or exams on the Marks tab." />
+          <EmptyState message={t("empty.noAssessments")} />
         ) : (
           <Table className="min-w-[40rem]">
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky left-0 z-20 min-w-[10rem]">Candidate</TableHead>
+                <TableHead className="sticky left-0 z-20 min-w-[10rem]">{t("col.candidate")}</TableHead>
                 {scores.assessments.map((a) => (
                   <TableHead key={a.id}>{a.title}</TableHead>
                 ))}
-                <TableHead>Average</TableHead>
-                <TableHead>Exam %</TableHead>
-                <TableHead>Attendance %</TableHead>
+                <TableHead>{t("col.average")}</TableHead>
+                <TableHead>{t("col.examPct")}</TableHead>
+                <TableHead>{t("col.attendancePct")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
