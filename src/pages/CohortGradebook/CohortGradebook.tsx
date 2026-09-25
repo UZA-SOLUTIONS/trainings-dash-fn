@@ -2,9 +2,19 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getCohort } from "@/services/cohortService";
 import { getScoresReport } from "@/services/reportService";
-import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
+import { PageTitle } from "@/components/layout/PageTitle";
+import { CohortSummary } from "@/components/layout/CohortSummary";
+import { cn, scoreTone } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function CohortGradebook() {
   const { cohortId } = useParams<{ cohortId: string }>();
@@ -22,57 +32,71 @@ export default function CohortGradebook() {
 
   return (
     <div>
-      <section className="mt-8">
+      <PageTitle>Gradebook</PageTitle>
+      <CohortSummary />
+      <section>
         {scoresLoading ? (
           <TableSkeleton cols={6} />
         ) : !scores || scores.assessments.length === 0 ? (
           <EmptyState message="No assessments yet. Add quizzes, tests, or exams on the Marks tab." />
         ) : (
-          <Card className="overflow-x-auto">
-            <table className="w-full min-w-[40rem] text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="px-4 py-3">Candidate</th>
-                  {scores.assessments.map((a) => (
-                    <th key={a.id} className="px-4 py-3">
-                      {a.title}
-                    </th>
-                  ))}
-                  <th className="px-4 py-3">Average</th>
-                  <th className="px-4 py-3">Exam %</th>
-                  <th className="px-4 py-3">Attendance %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scores.rows.map((row) => {
-                  const entered = scores.assessments
-                    .map((a) => row.scores[a.id])
-                    .filter((v): v is number => v != null && Number.isFinite(v));
-                  const average =
-                    entered.length === 0
-                      ? null
-                      : Math.round(entered.reduce((sum, n) => sum + n, 0) / entered.length);
-                  const candidate = cohortData?.candidates.find((c) => c.id === row.candidate_id);
-                  return (
-                    <tr key={row.candidate_id} className="border-b last:border-0">
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{row.full_name}</p>
-                        <p className="font-mono text-xs text-primary">{row.candidate_code}</p>
-                      </td>
-                      {scores.assessments.map((a) => (
-                        <td key={a.id} className="px-4 py-3">
-                          {row.scores[a.id] ?? "—"}
-                        </td>
-                      ))}
-                      <td className="px-4 py-3">{average ?? "—"}</td>
-                      <td className="px-4 py-3">{row.exam_score ?? "—"}</td>
-                      <td className="px-4 py-3">{candidate?.attendance_percentage ?? "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Card>
+          <Table className="min-w-[40rem]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="sticky left-0 z-20 min-w-[10rem]">Candidate</TableHead>
+                {scores.assessments.map((a) => (
+                  <TableHead key={a.id}>{a.title}</TableHead>
+                ))}
+                <TableHead>Average</TableHead>
+                <TableHead>Exam %</TableHead>
+                <TableHead>Attendance %</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {scores.rows.map((row) => {
+                const percents = scores.assessments
+                  .map((a) => {
+                    const score = row.scores[a.id];
+                    if (score == null || !a.max_score) return null;
+                    return Math.round((score / a.max_score) * 100);
+                  })
+                  .filter((v): v is number => v != null);
+                const average =
+                  percents.length === 0
+                    ? null
+                    : Math.round(percents.reduce((sum, n) => sum + n, 0) / percents.length);
+                const candidate = cohortData?.candidates.find((c) => c.id === row.candidate_id);
+                return (
+                  <TableRow key={row.candidate_id}>
+                    <TableCell className="sticky left-0 z-[1] min-w-[10rem] bg-card">
+                      <p>{row.full_name}</p>
+                      <p className="font-mono text-[11px] text-primary">{row.candidate_code}</p>
+                    </TableCell>
+                    {scores.assessments.map((a) => {
+                      const score = row.scores[a.id];
+                      const pct = score == null || !a.max_score ? null : Math.round((score / a.max_score) * 100);
+                      return (
+                        <TableCell key={a.id} className={cn("tabular-nums", scoreTone(pct))}>
+                          {score ?? "—"}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className={cn("tabular-nums", scoreTone(average))}>
+                      {average == null ? "—" : `${average}%`}
+                    </TableCell>
+                    <TableCell className={cn("tabular-nums", scoreTone(row.exam_score))}>
+                      {row.exam_score == null ? "—" : `${row.exam_score}%`}
+                    </TableCell>
+                    <TableCell className={cn("tabular-nums", scoreTone(candidate?.attendance_percentage))}>
+                      {candidate?.attendance_percentage == null
+                        ? "—"
+                        : `${candidate.attendance_percentage}%`}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </section>
     </div>

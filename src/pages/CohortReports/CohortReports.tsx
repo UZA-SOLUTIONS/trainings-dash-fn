@@ -10,11 +10,10 @@ import {
   getIssuesReport,
   getScoresReport,
 } from "@/services/reportService";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn, humanize, LINK_TEXT, scoreTone, statusTone } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -24,6 +23,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
+import { PageTitle } from "@/components/layout/PageTitle";
+import { CohortSummary } from "@/components/layout/CohortSummary";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
@@ -95,11 +96,13 @@ export default function CohortReports() {
 
   return (
     <div>
-      <section className="mt-8 space-y-10">
-        <Card className="space-y-4 p-5">
+      <PageTitle>Reports</PageTitle>
+      <CohortSummary />
+      <section className="space-y-6">
+        <Card className="space-y-4 p-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="font-display text-2xl font-semibold">Attendance sheet</h2>
+              <h2 className="text-sm font-normal">Attendance sheet</h2>
               <p className="text-sm text-muted-foreground">Daily roll call by candidate</p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
@@ -111,14 +114,14 @@ export default function CohortReports() {
                 <Label>To</Label>
                 <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
               </div>
-              <Button
+              <button
                 type="button"
-                variant="outline"
+                className={LINK_TEXT}
                 disabled={downloading === "attendance"}
                 onClick={() => download("attendance")}
               >
                 {downloading === "attendance" ? "Downloading…" : "Download CSV"}
-              </Button>
+              </button>
             </div>
           </div>
           {attendanceQuery.isPending ? (
@@ -144,16 +147,18 @@ export default function CohortReports() {
                   {attendance.rows.map((row) => (
                     <TableRow key={row.candidate_id}>
                       <TableCell>
-                        <p className="font-medium">{row.full_name}</p>
+                        <p>{row.full_name}</p>
                         <p className="font-mono text-sm text-primary">{row.candidate_code}</p>
                       </TableCell>
-                      <TableCell>{row.present}</TableCell>
-                      <TableCell>{row.late}</TableCell>
-                      <TableCell>{row.absent}</TableCell>
-                      <TableCell>{row.attendance_percentage ?? "—"}</TableCell>
+                      <TableCell className={statusTone("present")}>{row.present}</TableCell>
+                      <TableCell className={statusTone("late")}>{row.late}</TableCell>
+                      <TableCell className={statusTone("absent")}>{row.absent}</TableCell>
+                      <TableCell className={cn("tabular-nums", scoreTone(row.attendance_percentage))}>
+                        {row.attendance_percentage == null ? "—" : `${row.attendance_percentage}%`}
+                      </TableCell>
                       {dateHeaders.map((header) => (
-                        <TableCell key={header} className="capitalize">
-                          {row.by_date[header] || "—"}
+                        <TableCell key={header} className={cn("capitalize", statusTone(row.by_date[header]))}>
+                          {row.by_date[header] ? humanize(row.by_date[header]) : "—"}
                         </TableCell>
                       ))}
                     </TableRow>
@@ -164,20 +169,20 @@ export default function CohortReports() {
           )}
         </Card>
 
-        <Card className="space-y-4 p-5">
+        <Card className="space-y-4 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-display text-2xl font-semibold">Score sheet</h2>
+              <h2 className="text-sm font-normal">Score sheet</h2>
               <p className="text-sm text-muted-foreground">Quiz, test, and exam marks</p>
             </div>
-            <Button
+            <button
               type="button"
-              variant="outline"
+              className={LINK_TEXT}
               disabled={downloading === "scores"}
               onClick={() => download("scores")}
             >
               {downloading === "scores" ? "Downloading…" : "Download CSV"}
-            </Button>
+            </button>
           </div>
           {scoresQuery.isPending ? (
             <TableSkeleton cols={4} rows={5} />
@@ -204,13 +209,22 @@ export default function CohortReports() {
                   {scores.rows.map((row) => (
                     <TableRow key={row.candidate_id}>
                       <TableCell>
-                        <p className="font-medium">{row.full_name}</p>
+                        <p>{row.full_name}</p>
                         <p className="font-mono text-sm text-primary">{row.candidate_code}</p>
                       </TableCell>
-                      <TableCell>{row.exam_score ?? "—"}</TableCell>
-                      {scores.assessments.map((item) => (
-                        <TableCell key={item.id}>{row.scores[item.id] ?? "—"}</TableCell>
-                      ))}
+                      <TableCell className={cn("tabular-nums", scoreTone(row.exam_score))}>
+                        {row.exam_score == null ? "—" : `${row.exam_score}%`}
+                      </TableCell>
+                      {scores.assessments.map((item) => {
+                        const score = row.scores[item.id];
+                        const pct =
+                          score == null || !item.max_score ? null : Math.round((score / item.max_score) * 100);
+                        return (
+                          <TableCell key={item.id} className={cn("tabular-nums", scoreTone(pct))}>
+                            {score ?? "—"}
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -219,20 +233,20 @@ export default function CohortReports() {
           )}
         </Card>
 
-        <Card className="space-y-4 p-5">
+        <Card className="space-y-4 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-display text-2xl font-semibold">Issue log</h2>
+              <h2 className="text-sm font-normal">Issue log</h2>
               <p className="text-sm text-muted-foreground">Problems reported for candidates</p>
             </div>
-            <Button
+            <button
               type="button"
-              variant="outline"
+              className={LINK_TEXT}
               disabled={downloading === "issues"}
               onClick={() => download("issues")}
             >
               {downloading === "issues" ? "Downloading…" : "Download CSV"}
-            </Button>
+            </button>
           </div>
           {issuesQuery.isPending ? (
             <TableSkeleton cols={3} rows={5} />
@@ -251,20 +265,17 @@ export default function CohortReports() {
                 {issues.issues.map((issue) => (
                   <TableRow key={issue.id}>
                     <TableCell>
-                      <p className="font-medium">{issue.candidate_name}</p>
+                      <p>{issue.candidate_name}</p>
                       <p className="font-mono text-sm text-primary">{issue.candidate_code}</p>
                     </TableCell>
                     <TableCell>
                       <p>{issue.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {issue.category} · {issue.severity}
+                        {humanize(issue.category)} ·{" "}
+                        <span className={statusTone(issue.severity)}>{humanize(issue.severity)}</span>
                       </p>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={issue.status === "resolved" ? "secondary" : "outline"}>
-                        {issue.status.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
+                    <TableCell className={statusTone(issue.status)}>{humanize(issue.status)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

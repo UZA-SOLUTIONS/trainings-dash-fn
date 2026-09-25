@@ -10,10 +10,7 @@ import {
   type CourseStatus,
 } from "@/services/courseService";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -30,11 +27,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CELL_SELECT, SheetInput } from "@/components/ui/sheet-input";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
+import { PageTitle } from "@/components/layout/PageTitle";
 import { toast } from "sonner";
+import { CANCEL_TEXT, DELETE_TEXT, humanize, SAVE_TEXT, cn, statusTone } from "@/lib/utils";
 
 type Draft = {
-  id?: string;
   name: string;
   code: string;
   description: string;
@@ -50,17 +49,11 @@ const BLANK: Draft = {
   status: "active",
 };
 
-function statusBadge(status: Course["status"]) {
-  if (status === "active") return <Badge className="bg-primary/15 text-primary">Active</Badge>;
-  if (status === "draft") return <Badge variant="secondary">Draft</Badge>;
-  return <Badge variant="outline">Archived</Badge>;
-}
-
 export function CoursesPanel() {
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const canWrite = can("courses.write");
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [creating, setCreating] = useState<Draft | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Course | null>(null);
 
   const { data: courses = [], isPending, isError, error, refetch } = useQuery({
@@ -68,21 +61,29 @@ export function CoursesPanel() {
     queryFn: () => listCourses(),
   });
 
-  const saveMutation = useMutation({
-    mutationFn: async (d: Draft) => {
-      const payload = {
+  const createMutation = useMutation({
+    mutationFn: (d: Draft) =>
+      createCourse({
         name: d.name.trim(),
         code: d.code.trim(),
         description: d.description.trim() || null,
         duration_weeks: Number(d.duration_weeks) || 4,
         status: d.status,
-      };
-      if (d.id) return updateCourse(d.id, payload);
-      return createCourse(payload);
+      }),
+    onSuccess: () => {
+      toast.success("Course created");
+      setCreating(null);
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+      queryClient.invalidateQueries({ queryKey: ["modules"] });
     },
-    onSuccess: (_data, d) => {
-      toast.success(d.id ? "Course updated" : "Course created");
-      setDraft(null);
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof updateCourse>[1] }) =>
+      updateCourse(id, payload),
+    onSuccess: () => {
+      toast.success("Saved");
       queryClient.invalidateQueries({ queryKey: ["courses"] });
       queryClient.invalidateQueries({ queryKey: ["modules"] });
     },
@@ -100,111 +101,23 @@ export function CoursesPanel() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function startEdit(course: Course) {
-    setDraft({
-      id: course.id,
-      name: course.name,
-      code: course.code,
-      description: course.description ?? "",
-      duration_weeks: String(course.duration_weeks ?? 4),
-      status: course.status,
-    });
-  }
+  const pending = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-eyebrow text-muted-foreground">Training</p>
-          <h1 className="mt-1 font-display text-4xl font-bold">Courses</h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            Create, update, and manage training courses in the programme.
-          </p>
-        </div>
-        {canWrite && (
-          <Button type="button" onClick={() => setDraft({ ...BLANK })}>
-            Add course
-          </Button>
-        )}
-      </div>
+      <PageTitle
+        actions={
+          canWrite && !creating ? (
+            <button type="button" className={SAVE_TEXT} onClick={() => setCreating({ ...BLANK })}>
+              Add course
+            </button>
+          ) : undefined
+        }
+      >
+        Courses
+      </PageTitle>
 
-      {draft && canWrite && (
-        <Card className="mt-6 border-border/70 p-6">
-          <h2 className="font-display text-xl font-semibold">
-            {draft.id ? "Edit course" : "Create a course"}
-          </h2>
-          <form
-            className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              saveMutation.mutate(draft);
-            }}
-          >
-            <div className="space-y-2">
-              <Label htmlFor="course-name">Name</Label>
-              <Input
-                id="course-name"
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="course-code">Code</Label>
-              <Input
-                id="course-code"
-                value={draft.code}
-                onChange={(e) => setDraft({ ...draft, code: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="course-weeks">Duration (weeks)</Label>
-              <Input
-                id="course-weeks"
-                type="number"
-                min={1}
-                value={draft.duration_weeks}
-                onChange={(e) => setDraft({ ...draft, duration_weeks: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={draft.status}
-                onValueChange={(value: CourseStatus) => setDraft({ ...draft, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 sm:col-span-2 lg:col-span-4">
-              <Label htmlFor="course-desc">Description</Label>
-              <Input
-                id="course-desc"
-                value={draft.description}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              />
-            </div>
-            <div className="flex flex-wrap gap-3 sm:col-span-2 lg:col-span-4">
-              <Button type="submit" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? "Saving…" : draft.id ? "Save changes" : "Create course"}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setDraft(null)}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      <Card className="mt-8 overflow-hidden border-border/70">
+      <Card className="mt-4 overflow-hidden rounded-none border-0 shadow-none">
         {isError ? (
           <div className="p-6">
             <p className="font-medium text-destructive">Could not load courses</p>
@@ -216,65 +129,186 @@ export function CoursesPanel() {
             </Button>
           </div>
         ) : isPending ? (
-          <TableSkeleton cols={canWrite ? 6 : 5} />
+          <TableSkeleton cols={canWrite ? 7 : 6} />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Course</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Modules</TableHead>
                 <TableHead>Status</TableHead>
-                {canWrite && <TableHead className="text-right">Actions</TableHead>}
+                {canWrite && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {courses.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell>
-                      <div className="min-w-0">
-                        <p className="font-medium">{c.name}</p>
-                        {c.description && (
-                          <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
-                            {c.description}
-                          </p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{c.code}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {c.duration_weeks} week{c.duration_weeks === 1 ? "" : "s"}
-                    </TableCell>
-                    <TableCell className="tabular-nums">{c.module_count ?? 0}</TableCell>
-                    <TableCell>{statusBadge(c.status)}</TableCell>
-                    {canWrite && (
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => startEdit(c)}>
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive"
-                            disabled={deleteMutation.isPending}
-                            onClick={() => setPendingDelete(c)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              {courses.length === 0 && (
+              {creating && (
                 <TableRow>
-                  <TableCell
-                    colSpan={canWrite ? 6 : 5}
-                    className="py-10 text-center text-muted-foreground"
-                  >
+                  <TableCell>
+                    <SheetInput
+                      value={creating.name}
+                      onChange={(name) => setCreating({ ...creating, name })}
+                      onSave={() => createMutation.mutate(creating)}
+                      pending={pending}
+                      placeholder="Name"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <SheetInput
+                      className="text-muted-foreground"
+                      value={creating.description}
+                      onChange={(description) => setCreating({ ...creating, description })}
+                      onSave={() => createMutation.mutate(creating)}
+                      pending={pending}
+                      placeholder="Description"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <SheetInput
+                      value={creating.code}
+                      onChange={(code) => setCreating({ ...creating, code })}
+                      onSave={() => createMutation.mutate(creating)}
+                      pending={pending}
+                      placeholder="Code"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <SheetInput
+                      type="number"
+                      min={1}
+                      value={creating.duration_weeks}
+                      onChange={(duration_weeks) => setCreating({ ...creating, duration_weeks })}
+                      onSave={() => createMutation.mutate(creating)}
+                      pending={pending}
+                    />
+                  </TableCell>
+                  <TableCell className="tabular-nums">0</TableCell>
+                  <TableCell>
+                    <Select
+                      value={creating.status}
+                      onValueChange={(status: CourseStatus) => setCreating({ ...creating, status })}
+                    >
+                      <SelectTrigger className={CELL_SELECT}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="archived">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  {canWrite && (
+                    <TableCell>
+                      <button type="button" className={CANCEL_TEXT} onClick={() => setCreating(null)}>
+                        Cancel
+                      </button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              )}
+              {courses.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>
+                    {canWrite ? (
+                      <SheetInput
+                        value={c.name}
+                        onSave={(name) => updateMutation.mutate({ id: c.id, payload: { name } })}
+                        pending={pending}
+                      />
+                    ) : (
+                      c.name
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {canWrite ? (
+                      <SheetInput
+                        className="text-muted-foreground"
+                        value={c.description ?? ""}
+                        onSave={(description) =>
+                          updateMutation.mutate({
+                            id: c.id,
+                            payload: { description: description.trim() || null },
+                          })
+                        }
+                        pending={pending}
+                        placeholder="Description"
+                      />
+                    ) : (
+                      <span className="line-clamp-1 text-muted-foreground">{c.description || "—"}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {canWrite ? (
+                      <SheetInput
+                        className="font-mono"
+                        value={c.code}
+                        onSave={(code) => updateMutation.mutate({ id: c.id, payload: { code } })}
+                        pending={pending}
+                      />
+                    ) : (
+                      c.code
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {canWrite ? (
+                      <SheetInput
+                        type="number"
+                        min={1}
+                        value={String(c.duration_weeks)}
+                        onSave={(weeks) =>
+                          updateMutation.mutate({
+                            id: c.id,
+                            payload: { duration_weeks: Number(weeks) || 4 },
+                          })
+                        }
+                        pending={pending}
+                      />
+                    ) : (
+                      `${c.duration_weeks} week${c.duration_weeks === 1 ? "" : "s"}`
+                    )}
+                  </TableCell>
+                  <TableCell className="tabular-nums">{c.module_count ?? 0}</TableCell>
+                  <TableCell className={canWrite ? "p-0" : statusTone(c.status)}>
+                    {canWrite ? (
+                      <Select
+                        value={c.status}
+                        onValueChange={(status: CourseStatus) =>
+                          updateMutation.mutate({ id: c.id, payload: { status } })
+                        }
+                      >
+                        <SelectTrigger className={cn(CELL_SELECT, statusTone(c.status))}>
+                          <SelectValue>{humanize(c.status)}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active" className={statusTone("active")}>Active</SelectItem>
+                          <SelectItem value="draft" className={statusTone("draft")}>Draft</SelectItem>
+                          <SelectItem value="archived" className={statusTone("archived")}>Archived</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      humanize(c.status)
+                    )}
+                  </TableCell>
+                  {canWrite && (
+                    <TableCell>
+                      <button
+                        type="button"
+                        className={DELETE_TEXT}
+                        disabled={deleteMutation.isPending}
+                        onClick={() => setPendingDelete(c)}
+                      >
+                        Delete
+                      </button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+              {courses.length === 0 && !creating && (
+                <TableRow>
+                  <TableCell colSpan={canWrite ? 7 : 6} className="py-10 text-center text-muted-foreground">
                     No courses yet.
                   </TableCell>
                 </TableRow>
@@ -290,9 +324,7 @@ export function CoursesPanel() {
         }}
         title="Delete course"
         description={
-          pendingDelete
-            ? `Delete course “${pendingDelete.name}”? Its modules will also be deleted.`
-            : ""
+          pendingDelete ? `Delete course “${pendingDelete.name}”? Its modules will also be deleted.` : ""
         }
         confirmLabel="Delete course"
         pending={deleteMutation.isPending}

@@ -3,6 +3,7 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { AppRoutes } from "@/routes/AppRoutes";
 import { Toaster } from "@/components/ui/sonner";
+import { MotionProvider } from "@/components/motion/MotionProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,8 +23,10 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
-          <Toaster richColors position="top-center" />
+          <MotionProvider>
+            <AppRoutes />
+            <Toaster richColors position="top-center" />
+          </MotionProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

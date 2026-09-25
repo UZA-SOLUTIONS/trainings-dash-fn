@@ -92,10 +92,8 @@ export async function downloadModuleAttachment(
   attachmentId: string,
   fileName: string,
 ) {
-  const { data } = await api.get(`/modules/${moduleId}/attachments/${attachmentId}`, {
-    responseType: "blob",
-  });
-  const url = URL.createObjectURL(data);
+  const blob = await fetchModuleAttachmentBlob(moduleId, attachmentId);
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
@@ -103,6 +101,31 @@ export async function downloadModuleAttachment(
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function fetchModuleAttachmentBlob(moduleId: string, attachmentId: string) {
+  const { data } = await api.get(`/modules/${moduleId}/attachments/${attachmentId}`, {
+    responseType: "blob",
+  });
+  return data as Blob;
+}
+
+export async function addModuleAttachment(
+  moduleId: string,
+  payload: { name: string; mime_type: string; size: number; data: string },
+) {
+  const { data } = await api.post<ApiResponse<{ module: TrainingModule }>>(
+    `/modules/${moduleId}/attachments`,
+    payload,
+  );
+  return data.data.module;
+}
+
+export async function removeModuleAttachment(moduleId: string, attachmentId: string) {
+  const { data } = await api.delete<ApiResponse<{ module: TrainingModule }>>(
+    `/modules/${moduleId}/attachments/${attachmentId}`,
+  );
+  return data.data.module;
 }
 
 export function readFileAsBase64(file: File): Promise<string> {

@@ -124,27 +124,22 @@ export function HorizontalBar({
   const large = size === "lg";
   return (
     <div>
-      <div
-        className={cn(
-          "mb-2 flex items-baseline justify-between gap-3",
-          large ? "text-base sm:text-lg" : "text-sm",
-        )}
-      >
-        <span className={cn("text-foreground", large ? "font-semibold" : "font-medium")}>
-          {label}
-        </span>
-        <span
+      {(label || display) && (
+        <div
           className={cn(
-            "shrink-0 tabular-nums",
-            large ? "font-semibold text-foreground" : "text-muted-foreground",
+            "mb-1 flex items-baseline justify-between gap-3",
+            large ? "text-base sm:text-lg" : "text-sm",
           )}
         >
-          {display}
-        </span>
-      </div>
-      <div className={cn("overflow-hidden rounded-full bg-muted", large ? "h-3.5" : "h-2.5")}>
+          {label ? <span className="text-foreground">{label}</span> : <span />}
+          <span className={cn("shrink-0 tabular-nums", large ? "text-foreground" : "text-muted-foreground")}>
+            {display}
+          </span>
+        </div>
+      )}
+      <div className={cn("overflow-hidden rounded-none bg-muted", large ? "h-3.5" : "h-2.5")}>
         <div
-          className={cn("h-full rounded-full transition-all", colorClass)}
+          className={cn("h-full rounded-none transition-all", colorClass)}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -177,7 +172,7 @@ export function StatRing({
     >
       <p
         className={cn(
-          "font-display font-semibold tracking-tight text-foreground",
+          "font-display font-normal tracking-tight text-foreground",
           large ? "text-base" : "text-eyebrow text-muted-foreground",
         )}
       >
@@ -200,12 +195,12 @@ export function StatRing({
                 className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2 text-sm"
               >
                 <span
-                  className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                  className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-none"
                   style={{ backgroundColor: item.color }}
                   aria-hidden
                 />
                 <span className="min-w-0 leading-snug text-muted-foreground">{item.label}</span>
-                <span className="max-w-[7.5rem] break-words text-right font-semibold leading-snug tabular-nums">
+                <span className="max-w-[7.5rem] break-words text-right font-normal leading-snug tabular-nums">
                   {item.value}
                 </span>
               </li>
@@ -225,12 +220,12 @@ export function StatRing({
             {legend.map((item) => (
               <li key={item.label} className="flex min-w-0 items-start gap-2 text-sm">
                 <span
-                  className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                  className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-none"
                   style={{ backgroundColor: item.color }}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">{item.label}</span>
-                <span className="max-w-[5.5rem] shrink-0 break-words text-right font-medium tabular-nums leading-snug">
+                <span className="max-w-[5.5rem] shrink-0 break-words text-right font-normal tabular-nums leading-snug">
                   {item.value}
                 </span>
               </li>
@@ -382,7 +377,7 @@ export function HistogramChart({
                 width={barW}
                 height={Math.max(h, bar.value > 0 ? 3 : 0)}
                 fill={bar.color || "var(--primary)"}
-                rx={3}
+                rx={0}
               />
               <text
                 x={cx}
@@ -458,7 +453,7 @@ export function GroupedHistogram({
       <div className="mb-3 flex flex-wrap gap-4">
         {series.map((s) => (
           <div key={s.key} className="flex items-center gap-2 text-sm">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+            <span className="h-2.5 w-2.5 rounded-none" style={{ backgroundColor: s.color }} />
             <span className="font-light text-muted-foreground">{s.label}</span>
           </div>
         ))}
@@ -540,7 +535,7 @@ export function GroupedHistogram({
                     width={barW}
                     height={Math.max(h, value > 0 ? 2 : 0)}
                     fill={s.color}
-                    rx={2}
+                    rx={0}
                   >
                     <title>{`${group.label} · ${s.label}: ${value}`}</title>
                   </rect>

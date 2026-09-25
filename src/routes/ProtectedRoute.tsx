@@ -1,17 +1,13 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LoadingSpinner } from "@/components/feedback/LoadingSpinner";
+import { AppShellSkeleton } from "@/components/feedback/Skeleton";
 
 export function ProtectedRoute() {
   const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <LoadingSpinner label="Checking session…" />
-      </div>
-    );
+    return <AppShellSkeleton />;
   }
 
   if (!user) {

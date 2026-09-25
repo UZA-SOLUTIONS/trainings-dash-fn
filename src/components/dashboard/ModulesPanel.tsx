@@ -15,7 +15,6 @@ import {
   type TrainingModule,
 } from "@/services/moduleService";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +36,9 @@ import {
 } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
+import { PageTitle } from "@/components/layout/PageTitle";
 import { toast } from "sonner";
+import { CANCEL_TEXT, DELETE_TEXT, LINK_TEXT, SAVE_TEXT, humanize, statusTone } from "@/lib/utils";
 
 type Draft = {
   id?: string;
@@ -65,12 +66,6 @@ const BLANK: Draft = {
   duration_hours: "4",
   status: "active",
 };
-
-function statusBadge(status: TrainingModule["status"]) {
-  if (status === "active") return <Badge className="bg-primary/15 text-primary">Active</Badge>;
-  if (status === "draft") return <Badge variant="secondary">Draft</Badge>;
-  return <Badge variant="outline">Archived</Badge>;
-}
 
 function formatBytes(size: number) {
   if (size < 1024) return `${size} B`;
@@ -250,24 +245,25 @@ export function ModulesPanel() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-eyebrow text-muted-foreground">Training</p>
-          <h1 className="mt-1 font-display text-4xl font-bold">Modules</h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            Create modules with full content, a table of contents, and uploaded materials.
-          </p>
-        </div>
-        {canWrite && (
-          <Button type="button" onClick={() => setDraft({ ...BLANK, contents: [{ title: "", body: "", sort_order: 1 }] })}>
-            Add module
-          </Button>
-        )}
-      </div>
+      <PageTitle
+        actions={
+          canWrite ? (
+            <button
+              type="button"
+              className={SAVE_TEXT}
+              onClick={() => setDraft({ ...BLANK, contents: [{ title: "", body: "", sort_order: 1 }] })}
+            >
+              Add module
+            </button>
+          ) : undefined
+        }
+      >
+        Modules
+      </PageTitle>
 
       {draft && canWrite && (
         <Card className="mt-6 border-border/70 p-6">
-          <h2 className="font-display text-xl font-semibold">
+          <h2 className="text-sm">
             {draft.id ? "Edit module" : "Create a module"}
           </h2>
           <form
@@ -382,15 +378,15 @@ export function ModulesPanel() {
                     Add each section title and its full content.
                   </p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addSection}>
+                <button type="button" className={SAVE_TEXT} onClick={addSection}>
                   Add section
-                </Button>
+                </button>
               </div>
               <div className="space-y-4">
                 {draft.contents.map((section, index) => (
                   <div
                     key={section.id || `section-${index}`}
-                    className="rounded-xl border border-border/70 p-4"
+                    className="rounded-none border border-border/40 p-4"
                   >
                     <div className="flex flex-wrap items-start gap-3">
                       <div className="w-10 shrink-0 pt-2 text-sm font-medium text-muted-foreground">
@@ -409,15 +405,13 @@ export function ModulesPanel() {
                           placeholder="Full content for this section…"
                         />
                       </div>
-                      <Button
+                      <button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive"
+                        className={DELETE_TEXT}
                         onClick={() => removeSection(index)}
                       >
                         Remove
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -432,14 +426,13 @@ export function ModulesPanel() {
                     PDF, Word, PowerPoint, text, or images — up to 2.5 MB each (max 8).
                   </p>
                 </div>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
+                  className={SAVE_TEXT}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   Upload files
-                </Button>
+                </button>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -450,7 +443,7 @@ export function ModulesPanel() {
                 />
               </div>
               {draft.attachments.length > 0 ? (
-                <ul className="divide-y divide-border/60 rounded-xl border border-border/70">
+                <ul className="divide-y divide-border/40 border border-border/40">
                   {draft.attachments.map((att, index) => (
                     <li
                       key={att.id || `${att.name}-${index}`}
@@ -465,10 +458,9 @@ export function ModulesPanel() {
                       </div>
                       <div className="flex gap-2">
                         {draft.id && att.id && !att.data && (
-                          <Button
+                          <button
                             type="button"
-                            variant="outline"
-                            size="sm"
+                            className={LINK_TEXT}
                             onClick={() => {
                               void downloadModuleAttachment(draft.id!, att.id!, att.name).catch(
                                 (e: Error) => toast.error(e.message || "Download failed"),
@@ -476,41 +468,39 @@ export function ModulesPanel() {
                             }}
                           >
                             Download
-                          </Button>
+                          </button>
                         )}
-                        <Button
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive"
+                          className={DELETE_TEXT}
                           onClick={() => removeAttachment(index)}
                         >
                           Remove
-                        </Button>
+                        </button>
                       </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="rounded-xl border border-dashed border-border/70 px-4 py-6 text-center text-sm text-muted-foreground">
+                <p className="rounded-none border border-dashed border-border/40 px-4 py-6 text-center text-sm text-muted-foreground">
                   No materials uploaded yet.
                 </p>
               )}
             </div>
 
             <div className="flex flex-wrap gap-3 sm:col-span-2 lg:col-span-3">
-              <Button type="submit" disabled={saveMutation.isPending}>
+              <button type="submit" className={SAVE_TEXT} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? "Saving…" : draft.id ? "Save changes" : "Create module"}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setDraft(null)}>
+              </button>
+              <button type="button" className={CANCEL_TEXT} onClick={() => setDraft(null)}>
                 Cancel
-              </Button>
+              </button>
             </div>
           </form>
         </Card>
       )}
 
-      <Card className="mt-8 overflow-hidden border-border/70">
+      <Card className="mt-8 overflow-hidden rounded-none border-0 shadow-none">
         {isError ? (
           <div className="p-6">
             <p className="font-medium text-destructive">Could not load modules</p>
@@ -547,7 +537,7 @@ export function ModulesPanel() {
                       <TableCell className="tabular-nums text-muted-foreground">{m.sort_order}</TableCell>
                       <TableCell>
                         <div className="min-w-0">
-                          <p className="font-medium">{m.name}</p>
+                          <p>{m.name}</p>
                           {m.description && (
                             <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
                               {m.description}
@@ -574,23 +564,21 @@ export function ModulesPanel() {
                       <TableCell className="tabular-nums text-muted-foreground">
                         {m.duration_hours}
                       </TableCell>
-                      <TableCell>{statusBadge(m.status)}</TableCell>
+                      <TableCell className={statusTone(m.status)}>{humanize(m.status)}</TableCell>
                       {canWrite && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => startEdit(m)}>
+                            <button type="button" className={LINK_TEXT} onClick={() => startEdit(m)}>
                               Edit
-                            </Button>
-                            <Button
+                            </button>
+                            <button
                               type="button"
-                              variant="outline"
-                              size="sm"
-                              className="text-destructive"
+                              className={DELETE_TEXT}
                               disabled={deleteMutation.isPending}
                               onClick={() => setPendingDelete(m)}
                             >
                               Delete
-                            </Button>
+                            </button>
                           </div>
                         </TableCell>
                       )}

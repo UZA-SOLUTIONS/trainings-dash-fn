@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCohort } from "@/services/cohortService";
@@ -14,10 +14,7 @@ import {
   type AssessmentType,
 } from "@/services/assessmentService";
 import { listModules } from "@/services/moduleService";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -26,35 +23,68 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ListSkeleton, TableSkeleton } from "@/components/feedback/Skeleton";
+import { TableSkeleton } from "@/components/feedback/Skeleton";
+import { DonutChart } from "@/components/charts/ChartPrimitives";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { humanize } from "@/lib/utils";
+import { CANCEL_TEXT, DELETE_TEXT, cn, humanize, PASS_PCT, SAVE_TEXT, scoreOutcome, scoreTone, statusTone } from "@/lib/utils";
+import { CELL_SELECT, SheetInput } from "@/components/ui/sheet-input";
+import { PageTitle } from "@/components/layout/PageTitle";
+import { CohortSummary } from "@/components/layout/CohortSummary";
+
+const RANGES = [
+  { label: "90–100%", min: 90, max: 101, bar: "bg-chart-1" },
+  { label: "80–89%", min: 80, max: 90, bar: "bg-primary" },
+  { label: "70–79%", min: 70, max: 80, bar: "bg-chart-2" },
+  { label: "60–69%", min: 60, max: 70, bar: "bg-chart-4" },
+  { label: "Below 60%", min: 0, max: 60, bar: "bg-destructive" },
+] as const;
 
 function todayIso() {
   const d = new Date();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${month}-${day}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatShortDate(iso: string) {
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+function pctOf(score: number, max: number) {
+  if (!max) return 0;
+  return Math.round((score / max) * 100);
+}
+
+function MiniTable({
+  headers,
+  rows,
+}: {
+  headers: string[];
+  rows: Array<Array<ReactNode>>;
+}) {
+  return (
+    <table className="w-full border-collapse text-sm">
+      <thead>
+        <tr>
+          {headers.map((header) => (
+            <th
+              key={header}
+              className="border border-background/25 bg-primary px-2 py-1.5 text-left font-medium text-primary-foreground"
+            >
+              {header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => (
+          <tr key={i} className={i % 2 ? "bg-muted" : "bg-card"}>
+            {row.map((cell, j) => (
+              <td key={j} className="border border-border/40 px-2 py-1.5">
+                {cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 export default function CohortAssessments() {
@@ -157,7 +187,14 @@ export default function CohortAssessments() {
   });
 
   const saveMeta = useMutation({
-    mutationFn: () =>
+    mutationFn: (patch: Partial<{
+      title: string;
+      type: AssessmentType;
+      max_score: number;
+      date: string;
+      module_id: string | null;
+      is_final: boolean;
+    }> = {}) =>
       updateAssessment(selectedId!, {
         title: editTitle.trim(),
         type: editType,
@@ -165,9 +202,9 @@ export default function CohortAssessments() {
         date: editDate,
         module_id: editModuleId || null,
         is_final: editType === "exam" ? editIsFinal : false,
+        ...patch,
       }),
     onSuccess: () => {
-      toast.success("Assessment updated");
       queryClient.invalidateQueries({ queryKey: ["assessments", cohortId] });
       queryClient.invalidateQueries({ queryKey: ["assessment", selectedId] });
       queryClient.invalidateQueries({ queryKey: ["report-scores", cohortId] });
@@ -176,9 +213,9 @@ export default function CohortAssessments() {
   });
 
   const saveScores = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (rows: AssessmentRosterRow[]) => {
       if (!selectedId) throw new Error("Select an assessment first");
-      const payload = roster
+      const payload = rows
         .map((row) => ({
           candidate_id: row.candidate_id,
           score: row.score,
@@ -187,21 +224,27 @@ export default function CohortAssessments() {
         .filter((row): row is { candidate_id: string; score: number; remarks: string | null } =>
           row.score != null && Number.isFinite(row.score),
         );
-      if (payload.length === 0) throw new Error("Enter at least one score before saving");
+      if (payload.length === 0) return null;
       return saveAssessmentScores(selectedId, payload);
     },
     onSuccess: (data) => {
-      setRoster(data.roster);
-      toast.success("Scores saved");
-      queryClient.invalidateQueries({ queryKey: ["assessment", selectedId] });
+      if (data) setRoster(data.roster);
+      queryClient.invalidateQueries({ queryKey: ["report-scores", cohortId] });
       queryClient.invalidateQueries({ queryKey: ["cohort", cohortId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const scoreTimer = useRef<number>(0);
+  function persistRoster(next: AssessmentRosterRow[]) {
+    setRoster(next);
+    window.clearTimeout(scoreTimer.current);
+    scoreTimer.current = window.setTimeout(() => saveScores.mutate(next), 200);
+  }
+
   function setScore(candidateId: string, value: string) {
-    setRoster((rows) =>
-      rows.map((row) =>
+    persistRoster(
+      roster.map((row) =>
         row.candidate_id === candidateId
           ? { ...row, score: value === "" ? null : Number(value) }
           : row,
@@ -210,35 +253,162 @@ export default function CohortAssessments() {
   }
 
   function setRemarks(candidateId: string, remarks: string) {
-    setRoster((rows) =>
-      rows.map((row) => (row.candidate_id === candidateId ? { ...row, remarks } : row)),
+    persistRoster(
+      roster.map((row) => (row.candidate_id === candidateId ? { ...row, remarks } : row)),
     );
   }
 
   const selectedAssessment: Assessment | undefined = selected?.assessment;
-  const scoredCount = roster.filter((row) => row.score != null).length;
+  const max = selectedAssessment?.max_score ?? 100;
+  const scored = roster.filter((row) => row.score != null);
+  const percents = scored.map((row) => pctOf(row.score ?? 0, max));
+  const avg = percents.length ? Math.round(percents.reduce((a, n) => a + n, 0) / percents.length) : null;
+  const top = percents.length ? Math.max(...percents) : null;
+  const low = percents.length ? Math.min(...percents) : null;
+  const passed = percents.filter((n) => n >= PASS_PCT).length;
+  const needs = percents.filter((n) => n < PASS_PCT).length;
+  const unmarked = roster.length - scored.length;
+  const failLabel =
+    selectedAssessment?.is_final || selectedAssessment?.type === "exam" ? "Failed" : "Needs improvement";
+  const sortedAssessments = [...assessments].sort((a, b) => b.date.localeCompare(a.date));
+
+  const rangeCounts = useMemo(
+    () => RANGES.map((range) => percents.filter((n) => n >= range.min && n < range.max).length),
+    [percents],
+  );
+  const rangeMax = Math.max(...rangeCounts, 1);
+
+  const analysisRows = [...roster].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
   return (
     <div>
-      <section className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,22rem)_1fr]">
-        <div className="space-y-6">
+      <PageTitle
+        actions={
+          canWrite && !creating ? (
+            <button type="button" className={SAVE_TEXT} onClick={() => setCreating(true)}>
+              New assessment
+            </button>
+          ) : undefined
+        }
+      >
+        Marks
+      </PageTitle>
+      <CohortSummary />
+
+      {canWrite && creating && (
+        <Card className="mt-4 space-y-4 p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm">New assessment</h2>
+            <button type="button" className={CANCEL_TEXT} onClick={() => setCreating(false)}>
+              Cancel
+            </button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Title</Label>
+              <SheetInput value={title} onChange={setTitle} onSave={() => create.mutate()} pending={create.isPending} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Type</Label>
+              <Select value={type} onValueChange={(v) => setType(v as AssessmentType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quiz">Quiz</SelectItem>
+                  <SelectItem value="test">Test</SelectItem>
+                  <SelectItem value="exam">Exam</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Date</Label>
+              <SheetInput type="date" value={date} onChange={setDate} onSave={() => create.mutate()} pending={create.isPending} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Max score</Label>
+              <SheetInput type="number" min={1} value={maxScore} onChange={setMaxScore} onSave={() => create.mutate()} pending={create.isPending} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Module</Label>
+              <Select value={moduleId || "none"} onValueChange={(v) => setModuleId(v === "none" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Optional" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {modules.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {type === "exam" && (
+              <label className="flex items-center gap-2 self-end text-sm">
+                <input type="checkbox" checked={isFinal} onChange={(e) => setIsFinal(e.target.checked)} />
+                Official final exam
+              </label>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {listLoading ? (
+        <div className="mt-4" aria-busy="true">
+          <TableSkeleton rows={6} cols={4} />
+        </div>
+      ) : assessments.length === 0 && !creating ? (
+        <p className="mt-4 text-base text-muted-foreground">No assessments yet.</p>
+      ) : selectedId && selectedLoading && !selectedAssessment ? (
+        <div className="mt-4" aria-busy="true">
+          <TableSkeleton rows={6} cols={4} />
+        </div>
+      ) : selectedId && selectedAssessment ? (
+        <div className="mt-4 space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Select value={selectedId} onValueChange={setSelectedId}>
+              <SelectTrigger className={cn(CELL_SELECT, "h-10 max-w-md border border-border/40 px-3")}>
+                <SelectValue placeholder="Select assessment" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedAssessments.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.title}
+                    {item.is_final ? " · final" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {canWrite && (
+              <button type="button" className={DELETE_TEXT} disabled={remove.isPending} onClick={() => setPendingDelete(true)}>
+                Delete
+              </button>
+            )}
+          </div>
+
           {canWrite && (
-            creating ? (
-            <Card className="space-y-4 p-5">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="font-display text-xl font-semibold">New assessment</h2>
-                <Button type="button" variant="outline" size="sm" onClick={() => setCreating(false)}>
-                  Cancel
-                </Button>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Type</Label>
-                <Select value={type} onValueChange={(v) => setType(v as AssessmentType)}>
-                  <SelectTrigger>
+            <div className="grid gap-0 overflow-hidden border border-border/40 sm:grid-cols-5">
+              <label className="border-b border-border/40 sm:border-r sm:border-b-0">
+                <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
+                  Title
+                </span>
+                <SheetInput value={editTitle} onChange={setEditTitle} onSave={() => saveMeta.mutate()} pending={saveMeta.isPending} />
+              </label>
+              <label className="border-b border-border/40 sm:border-r sm:border-b-0">
+                <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
+                  Type
+                </span>
+                <Select
+                  value={editType}
+                  onValueChange={(v) => {
+                    const next = v as AssessmentType;
+                    setEditType(next);
+                    saveMeta.mutate({ type: next, is_final: next === "exam" ? editIsFinal : false });
+                  }}
+                >
+                  <SelectTrigger className={CELL_SELECT}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -247,19 +417,32 @@ export default function CohortAssessments() {
                     <SelectItem value="exam">Exam</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Date</Label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Max score</Label>
-                <Input type="number" min={1} value={maxScore} onChange={(e) => setMaxScore(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Module</Label>
-                <Select value={moduleId || "none"} onValueChange={(v) => setModuleId(v === "none" ? "" : v)}>
-                  <SelectTrigger>
+              </label>
+              <label className="border-b border-border/40 sm:border-r sm:border-b-0">
+                <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
+                  Date
+                </span>
+                <SheetInput type="date" value={editDate} onChange={setEditDate} onSave={() => saveMeta.mutate()} pending={saveMeta.isPending} />
+              </label>
+              <label className="border-b border-border/40 sm:border-r sm:border-b-0">
+                <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
+                  Max score
+                </span>
+                <SheetInput type="number" min={1} value={editMaxScore} onChange={setEditMaxScore} onSave={() => saveMeta.mutate()} pending={saveMeta.isPending} />
+              </label>
+              <label>
+                <span className="block bg-primary px-2 py-1 text-[10px] tracking-wide text-primary-foreground uppercase">
+                  Module
+                </span>
+                <Select
+                  value={editModuleId || "none"}
+                  onValueChange={(v) => {
+                    const next = v === "none" ? "" : v;
+                    setEditModuleId(next);
+                    saveMeta.mutate({ module_id: next || null });
+                  }}
+                >
+                  <SelectTrigger className={CELL_SELECT}>
                     <SelectValue placeholder="Optional" />
                   </SelectTrigger>
                   <SelectContent>
@@ -271,243 +454,178 @@ export default function CohortAssessments() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              {type === "exam" && (
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={isFinal}
-                    onChange={(e) => setIsFinal(e.target.checked)}
-                  />
-                  Official final exam (updates candidate exam score)
-                </label>
-              )}
-              <Button
-                type="button"
-                disabled={create.isPending || title.trim().length < 2}
-                onClick={() => create.mutate()}
-              >
-                {create.isPending ? "Creating…" : "Create"}
-              </Button>
-            </Card>
-            ) : (
-              <Button type="button" variant="outline" onClick={() => setCreating(true)}>
-                New assessment
-              </Button>
-            )
+              </label>
+            </div>
           )}
 
-          <div>
-            <h2 className="text-eyebrow text-muted-foreground">Assessments</h2>
-            {listLoading ? (
-              <div className="mt-3" aria-busy="true">
-                <ListSkeleton rows={5} />
-              </div>
-            ) : assessments.length === 0 ? (
-              <p className="mt-3 text-base text-muted-foreground">No assessments yet.</p>
-            ) : (
-              <div className="mt-3 space-y-2">
-                {assessments.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setSelectedId(item.id)}
-                    className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
-                      selectedId === item.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium">{item.title}</p>
-                      <Badge variant="secondary">{humanize(item.type)}</Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {formatShortDate(item.date)} · max {item.max_score}
-                      {item.is_final ? " · final exam" : ""}
-                      {item.module_id
-                        ? ` · ${modules.find((m) => m.id === item.module_id)?.name ?? "module"}`
-                        : ""}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          <section className="border border-border/40 bg-card p-4 sm:p-5">
+            <h2 className="text-center text-lg tracking-tight text-primary">
+              {selectedAssessment.title} analysis
+            </h2>
+            <p className="mt-1 text-center text-sm text-muted-foreground">
+              Max {max} · {humanize(selectedAssessment.type)}
+              {selectedAssessment.is_final ? " · final exam" : ""}
+            </p>
 
-        <div>
-          {!selectedId ? (
-            <p className="text-base text-muted-foreground">Select an assessment to enter scores.</p>
-          ) : selectedLoading && !selectedAssessment ? (
-            <div aria-busy="true">
-              <TableSkeleton rows={6} cols={3} />
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <MiniTable
+                headers={["Metric", "Value"]}
+                rows={[
+                  ["Total candidates", roster.length],
+                  ["Scored", `${scored.length} / ${roster.length}`],
+                  ["Average %", avg == null ? "—" : <span className={scoreTone(avg)}>{avg}%</span>],
+                  ["Highest %", top == null ? "—" : <span className={scoreTone(top)}>{top}%</span>],
+                  ["Lowest %", low == null ? "—" : <span className={scoreTone(low)}>{low}%</span>],
+                  [
+                    "Passed (≥50%)",
+                    scored.length ? (
+                      <span className={statusTone("completed")}>
+                        {passed} ({Math.round((passed / scored.length) * 100)}%)
+                      </span>
+                    ) : (
+                      "—"
+                    ),
+                  ],
+                  [
+                    failLabel,
+                    scored.length ? (
+                      <span className={statusTone("failed")}>
+                        {needs} ({Math.round((needs / scored.length) * 100)}%)
+                      </span>
+                    ) : (
+                      "—"
+                    ),
+                  ],
+                ]}
+              />
+              <MiniTable
+                headers={["Score range", "Candidates"]}
+                rows={RANGES.map((range, i) => [range.label, rangeCounts[i]])}
+              />
             </div>
-          ) : (
-            <>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-display text-2xl font-semibold">{selectedAssessment?.title}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Max {selectedAssessment?.max_score} · {humanize(selectedAssessment?.type ?? "")}
-                    {roster.length > 0 ? ` · ${scoredCount} / ${roster.length} scored` : ""}
-                  </p>
-                </div>
-                {canWrite && (
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" disabled={saveScores.isPending} onClick={() => saveScores.mutate()}>
-                      {saveScores.isPending ? "Saving…" : "Save scores"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      disabled={remove.isPending}
-                      onClick={() => setPendingDelete(true)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                )}
-              </div>
-              {canWrite && (
-                <Card className="mb-4 grid gap-4 p-5 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>Title</Label>
-                    <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Type</Label>
-                    <Select value={editType} onValueChange={(v) => setEditType(v as AssessmentType)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="quiz">Quiz</SelectItem>
-                        <SelectItem value="test">Test</SelectItem>
-                        <SelectItem value="exam">Exam</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Date</Label>
-                    <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Max score</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={editMaxScore}
-                      onChange={(e) => setEditMaxScore(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Module</Label>
-                    <Select
-                      value={editModuleId || "none"}
-                      onValueChange={(v) => setEditModuleId(v === "none" ? "" : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Optional" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {modules.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {editType === "exam" && (
-                    <label className="flex items-center gap-2 self-end text-sm">
-                      <input
-                        type="checkbox"
-                        checked={editIsFinal}
-                        onChange={(e) => setEditIsFinal(e.target.checked)}
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <div>
+                <h3 className="mb-3 text-center text-sm text-primary">Score distribution</h3>
+                <div className="flex h-44 items-end gap-2 px-2">
+                  {RANGES.map((range, i) => (
+                    <div key={range.label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                      <span className="text-[11px] tabular-nums text-muted-foreground">{rangeCounts[i]}</span>
+                      <div
+                        className={cn("w-full min-h-1", range.bar)}
+                        style={{ height: `${Math.max(6, (rangeCounts[i] / rangeMax) * 140)}px` }}
                       />
-                      Official final exam
-                    </label>
-                  )}
-                  <div className="sm:col-span-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={saveMeta.isPending || editTitle.trim().length < 2}
-                      onClick={() => saveMeta.mutate()}
-                    >
-                      {saveMeta.isPending ? "Saving…" : "Save assessment"}
-                    </Button>
-                  </div>
-                </Card>
-              )}
-              <Card className="overflow-hidden border-border/70 shadow-none">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>Candidate</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Remarks</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {roster.map((row) => (
-                      <TableRow key={row.candidate_id}>
-                        <TableCell>
-                          <p className="font-medium">{row.full_name}</p>
-                          <p className="mt-0.5 font-mono text-sm text-primary">{row.candidate_code}</p>
-                        </TableCell>
-                        <TableCell>
+                      <span className="text-center text-[10px] leading-tight text-muted-foreground">{range.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col items-center">
+                <h3 className="mb-3 text-center text-sm text-primary">Outcome mix</h3>
+                <DonutChart
+                  size={160}
+                  strokeWidth={16}
+                  centerLabel={String(roster.length)}
+                  centerSub="class"
+                  segments={[
+                    { value: passed, color: "var(--primary)", label: "Passed" },
+                    { value: needs, color: "var(--destructive)", label: failLabel },
+                    { value: unmarked, color: "var(--muted-foreground)", label: "Unmarked" },
+                  ]}
+                />
+                <ul className="mt-3 flex flex-wrap justify-center gap-4 text-xs">
+                  <li className="flex items-center gap-1.5">
+                    <span className="size-2.5 bg-primary" /> Passed {passed}
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="size-2.5 bg-destructive" /> {failLabel} {needs}
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="size-2.5 bg-muted-foreground" /> Unmarked {unmarked}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="mb-2 text-center text-lg tracking-tight text-primary">Score analysis</h2>
+            <div className="overflow-auto border border-border/40">
+              <table className="w-full min-w-[44rem] border-collapse text-sm">
+                <thead>
+                  <tr>
+                    {["Student ID", "Name", `Score / ${max}`, "%", "Status", "Remarks"].map((header) => (
+                      <th
+                        key={header}
+                        className="border border-background/25 bg-primary px-2 py-2 text-left font-medium text-primary-foreground"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {analysisRows.map((row, i) => {
+                    const pct = row.score == null ? null : pctOf(row.score, max);
+                    const outcome = scoreOutcome(pct, selectedAssessment.is_final || selectedAssessment.type === "exam");
+                    return (
+                      <tr key={row.candidate_id} className={i % 2 ? "bg-muted" : "bg-card"}>
+                        <td className="border border-border/40 px-2 py-0 font-mono">{row.candidate_code}</td>
+                        <td className="border border-border/40 px-2 py-0">{row.full_name}</td>
+                        <td className={cn("border border-border/40 p-0", scoreTone(pct))}>
                           {canWrite ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min={0}
-                                max={selectedAssessment?.max_score}
-                                className="h-9 w-28"
-                                value={row.score ?? ""}
-                                onChange={(e) => setScore(row.candidate_id, e.target.value)}
-                              />
-                              <span className="text-sm text-muted-foreground">
-                                / {selectedAssessment?.max_score}
-                              </span>
-                            </div>
-                          ) : (
-                            row.score != null ? `${row.score} / ${selectedAssessment?.max_score}` : "—"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {canWrite ? (
-                            <Input
-                              className="h-9"
-                              value={row.remarks ?? ""}
-                              onChange={(e) => setRemarks(row.candidate_id, e.target.value)}
+                            <SheetInput
+                              type="number"
+                              min={0}
+                              max={max}
+                              value={row.score == null ? "" : String(row.score)}
+                              onChange={(value) => setScore(row.candidate_id, value)}
+                              onSave={() => saveScores.mutate(roster)}
+                              pending={saveScores.isPending}
                             />
                           ) : (
-                            row.remarks || "—"
+                            <span className="block px-2 py-1.5 tabular-nums">{row.score ?? "—"}</span>
                           )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-              <ConfirmDialog
-                open={pendingDelete}
-                onOpenChange={setPendingDelete}
-                title="Delete assessment"
-                description="Scores for this quiz, test, or exam will be removed. This cannot be undone."
-                confirmLabel="Delete assessment"
-                pending={remove.isPending}
-                onConfirm={async () => {
-                  await remove.mutateAsync();
-                }}
-              />
-            </>
-          )}
+                        </td>
+                        <td className={cn("border border-border/40 px-2 py-1.5 tabular-nums", scoreTone(pct))}>
+                          {pct == null ? "—" : `${pct}%`}
+                        </td>
+                        <td className={cn("border border-border/40 px-2 py-1.5", outcome.className)}>
+                          {outcome.label}
+                        </td>
+                        <td className="border border-border/40 p-0">
+                          {canWrite ? (
+                            <SheetInput
+                              value={row.remarks ?? ""}
+                              onChange={(remarks) => setRemarks(row.candidate_id, remarks)}
+                              onSave={() => saveScores.mutate(roster)}
+                              pending={saveScores.isPending}
+                            />
+                          ) : (
+                            <span className="block px-2 py-1.5">{row.remarks || "—"}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
-      </section>
+      ) : null}
+
+      <ConfirmDialog
+        open={pendingDelete}
+        onOpenChange={setPendingDelete}
+        title="Delete assessment"
+        description="Scores for this quiz, test, or exam will be removed. This cannot be undone."
+        confirmLabel="Delete assessment"
+        pending={remove.isPending}
+        onConfirm={async () => {
+          await remove.mutateAsync();
+        }}
+      />
     </div>
   );
 }

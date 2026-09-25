@@ -12,7 +12,6 @@ import {
 } from "@/services/candidateService";
 import type { Cohort } from "@/services/cohortService";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +34,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ReasonDialog } from "@/components/ui/reason-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { CANCEL_TEXT, DELETE_TEXT, formatDob, humanize, LINK_TEXT, SAVE_TEXT, cn, statusTone } from "@/lib/utils";
+import { CELL_SELECT, SheetInput } from "@/components/ui/sheet-input";
+import { PageTitle } from "@/components/layout/PageTitle";
 
 const STATUSES: CandidateStatus[] = ["enrolled", "waitlisted", "rejected", "withdrawn", "graduated"];
 const TRAINING: TrainingStatus[] = ["not_started", "in_progress", "completed", "failed"];
@@ -144,17 +146,21 @@ export function CandidatesPanel({
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-eyebrow text-muted-foreground">Training</p>
-          <h1 className="mt-1 font-display text-4xl font-bold">Candidates</h1>
-        </div>
-        {canWrite && (
-          <Button type="button" onClick={() => setAdding((v) => !v)}>
-            {adding ? "Close" : "Add candidate"}
-          </Button>
-        )}
-      </div>
+      <PageTitle
+        actions={
+          canWrite ? (
+            <button
+              type="button"
+              className={adding ? CANCEL_TEXT : SAVE_TEXT}
+              onClick={() => setAdding((v) => !v)}
+            >
+              {adding ? "Close" : "Add candidate"}
+            </button>
+          ) : undefined
+        }
+      >
+        Candidates
+      </PageTitle>
 
       {adding && (
         <Card className="mt-6 grid gap-4 p-5 md:grid-cols-2">
@@ -175,43 +181,69 @@ export function CandidatesPanel({
           </div>
           <div className="space-y-1.5">
             <Label>Full name</Label>
-            <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+            <SheetInput
+              value={form.full_name}
+              onChange={(full_name) => setForm({ ...form, full_name })}
+              onSave={() => create.mutate()}
+              pending={create.isPending}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>National ID</Label>
-            <Input value={form.national_id} onChange={(e) => setForm({ ...form, national_id: e.target.value })} />
+            <SheetInput
+              value={form.national_id}
+              onChange={(national_id) => setForm({ ...form, national_id })}
+              onSave={() => create.mutate()}
+              pending={create.isPending}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Phone</Label>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <SheetInput
+              value={form.phone}
+              onChange={(phone) => setForm({ ...form, phone })}
+              onSave={() => create.mutate()}
+              pending={create.isPending}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Email</Label>
-            <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <SheetInput
+              type="email"
+              value={form.email}
+              onChange={(email) => setForm({ ...form, email })}
+              onSave={() => create.mutate()}
+              pending={create.isPending}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Date of birth</Label>
-            <Input
+            <SheetInput
               type="date"
               value={form.date_of_birth}
-              onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
+              onChange={(date_of_birth) => setForm({ ...form, date_of_birth })}
+              onSave={() => create.mutate()}
+              pending={create.isPending}
             />
           </div>
           <div className="space-y-1.5">
             <Label>Gender</Label>
-            <Input value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} />
+            <SheetInput
+              value={form.gender}
+              onChange={(gender) => setForm({ ...form, gender })}
+              onSave={() => create.mutate()}
+              pending={create.isPending}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>District</Label>
-            <Input value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} />
+            <SheetInput
+              value={form.district}
+              onChange={(district) => setForm({ ...form, district })}
+              onSave={() => create.mutate()}
+              pending={create.isPending}
+            />
           </div>
-          <Button
-            type="button"
-            disabled={create.isPending || !cohortId || form.full_name.trim().length < 2}
-            onClick={() => create.mutate()}
-          >
-            Save candidate
-          </Button>
         </Card>
       )}
 
@@ -237,86 +269,158 @@ export function CandidatesPanel({
         </Select>
       </div>
 
-      <Card className="mt-4 overflow-hidden">
+      <Card className="mt-4 overflow-hidden rounded-none border-0 shadow-none">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Candidate</TableHead>
+              <TableHead>Code</TableHead>
               <TableHead>Cohort</TableHead>
+              <TableHead>National ID</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Date of birth</TableHead>
+              <TableHead>District</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Training</TableHead>
-              <TableHead />
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((c) => (
               <TableRow key={c.id}>
                 <TableCell>
-                  <Link to={`/candidates/${c.id}`} className="font-medium hover:underline">
-                    {c.full_name}
-                  </Link>
-                  <p className="font-mono text-sm text-primary">{c.candidate_code}</p>
+                  {canMembership && isSchoolOwned(c) ? (
+                    <SheetInput
+                      value={c.full_name}
+                      onSave={(full_name) => update.mutate({ id: c.id, patch: { full_name } })}
+                      pending={update.isPending}
+                    />
+                  ) : (
+                    <Link to={`/candidates/${c.id}`} className={LINK_TEXT}>
+                      {c.full_name}
+                    </Link>
+                  )}
+                </TableCell>
+                <TableCell className="font-mono text-sm">
+                  <span className="text-primary">{c.candidate_code}</span>
                   {c.source === "provided" && (
-                    <Badge variant="secondary" className="mt-1">
+                    <Badge variant="secondary" className="ml-2">
                       UZA provided
                     </Badge>
                   )}
                 </TableCell>
                 <TableCell>{cohortName(c.cohort_id)}</TableCell>
+                <TableCell className="font-mono">
+                  {canMembership && isSchoolOwned(c) ? (
+                    <SheetInput
+                      className="font-mono"
+                      value={c.national_id || ""}
+                      onSave={(national_id) => update.mutate({ id: c.id, patch: { national_id } })}
+                      pending={update.isPending}
+                    />
+                  ) : (
+                    c.national_id || "—"
+                  )}
+                </TableCell>
                 <TableCell>
+                  {canMembership && isSchoolOwned(c) ? (
+                    <SheetInput
+                      type="email"
+                      value={c.email || ""}
+                      onSave={(email) =>
+                        update.mutate({ id: c.id, patch: { email: email.trim() || null } })
+                      }
+                      pending={update.isPending}
+                    />
+                  ) : (
+                    c.email || "—"
+                  )}
+                </TableCell>
+                <TableCell>
+                  {canMembership && isSchoolOwned(c) ? (
+                    <SheetInput
+                      type="date"
+                      value={c.date_of_birth ?? ""}
+                      onSave={(date_of_birth) =>
+                        update.mutate({
+                          id: c.id,
+                          patch: { date_of_birth: date_of_birth || null },
+                        })
+                      }
+                      pending={update.isPending}
+                    />
+                  ) : (
+                    formatDob(c.date_of_birth)
+                  )}
+                </TableCell>
+                <TableCell>
+                  {canMembership && isSchoolOwned(c) ? (
+                    <SheetInput
+                      value={c.district ?? ""}
+                      onSave={(district) =>
+                        update.mutate({
+                          id: c.id,
+                          patch: { district: district.trim() || null },
+                        })
+                      }
+                      pending={update.isPending}
+                    />
+                  ) : (
+                    c.district || "—"
+                  )}
+                </TableCell>
+                    <TableCell className={canMembership ? "p-0" : statusTone(c.status)}>
                   {canMembership ? (
                     <Select value={c.status} onValueChange={(v) => handleStatusChange(c, v)}>
-                      <SelectTrigger className="h-9 w-[140px]">
-                        <SelectValue />
+                      <SelectTrigger className={cn(CELL_SELECT, statusTone(c.status))}>
+                        <SelectValue>{humanize(c.status)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {STATUSES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
+                          <SelectItem key={s} value={s} className={statusTone(s)}>
+                            {humanize(s)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   ) : (
-                    <Badge>{c.status}</Badge>
+                    humanize(c.status)
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className={canTraining ? "p-0" : statusTone(c.training_status)}>
                   {canTraining ? (
                     <Select
                       value={c.training_status}
                       onValueChange={(v) => update.mutate({ id: c.id, patch: { training_status: v } })}
                     >
-                      <SelectTrigger className="h-9 w-[150px]">
-                        <SelectValue />
+                      <SelectTrigger className={cn(CELL_SELECT, statusTone(c.training_status))}>
+                        <SelectValue>{humanize(c.training_status)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {TRAINING.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
+                          <SelectItem key={s} value={s} className={statusTone(s)}>
+                            {humanize(s)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   ) : (
-                    c.training_status
+                    humanize(c.training_status)
                   )}
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button asChild size="sm" variant="outline">
-                      <Link to={`/candidates/${c.id}`}>Profile</Link>
-                    </Button>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Link to={`/candidates/${c.id}`} className={LINK_TEXT}>
+                      Profile
+                    </Link>
                     {canDelete && isSchoolOwned(c) && (
-                      <Button
+                      <button
                         type="button"
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive"
+                        className={DELETE_TEXT}
                         onClick={() => setPendingDelete(c)}
                       >
                         Delete
-                      </Button>
+                      </button>
                     )}
                   </div>
                 </TableCell>

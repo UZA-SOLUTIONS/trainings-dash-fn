@@ -1,7 +1,15 @@
 import type { Cohort } from "@/services/cohortService";
-import { Card } from "@/components/ui/card";
-import { HorizontalBar, StatRing } from "@/components/charts/ChartPrimitives";
-import { cn } from "@/lib/utils";
+import { HorizontalBar } from "@/components/charts/ChartPrimitives";
+import { FadeIn } from "@/components/motion/FadeIn";
+import { cn, statusTone } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type Candidate = {
   cohort_id: string;
@@ -9,18 +17,18 @@ type Candidate = {
   training_status: string;
 };
 
-const MEMBERSHIP = {
-  enrolled: "var(--primary)",
-  waitlisted: "var(--volt)",
-  graduated: "oklch(0.55 0.08 158)",
-  other: "oklch(0.62 0.12 250)",
-};
-
 const TRAINING = [
-  { key: "not_started", label: "Not started", color: "var(--muted-foreground)", colorClass: "bg-muted-foreground/45" },
-  { key: "in_progress", label: "In progress", color: "var(--primary)", colorClass: "bg-primary" },
-  { key: "completed", label: "Completed", color: "var(--chart-2)", colorClass: "bg-chart-2" },
-  { key: "failed", label: "Failed", color: "var(--destructive)", colorClass: "bg-destructive" },
+  { key: "not_started", label: "Not started", colorClass: "bg-muted-foreground/45" },
+  { key: "in_progress", label: "In progress", colorClass: "bg-chart-4" },
+  { key: "completed", label: "Completed", colorClass: "bg-primary" },
+  { key: "failed", label: "Failed", colorClass: "bg-destructive" },
+] as const;
+
+const MIX = [
+  { key: "enrolled", label: "Enrolled", colorClass: "bg-primary" },
+  { key: "waitlisted", label: "Waitlisted", colorClass: "bg-chart-4" },
+  { key: "graduated", label: "Graduated", colorClass: "bg-chart-1" },
+  { key: "other", label: "Other", colorClass: "bg-destructive" },
 ] as const;
 
 function percent(value: number, total: number) {
@@ -49,89 +57,123 @@ export function OverviewVisuals({
   const inProgress = countTraining("in_progress");
   const training = TRAINING.map((row) => ({ ...row, value: countTraining(row.key) }));
   const trainingTotal = candidates.length;
+  const mix = [
+    { ...MIX[0], value: enrolled },
+    { ...MIX[1], value: waitlisted },
+    { ...MIX[2], value: graduated },
+    { ...MIX[3], value: other },
+  ];
+  const mixTotal = mix.reduce((a, r) => a + r.value, 0);
 
   return (
-    <div className={cn("grid gap-4 md:grid-cols-2 xl:grid-cols-3", className)}>
-      <Card className="p-5">
-        <p className="text-sm text-muted-foreground">Seats</p>
-        <p className="mt-1 font-display text-3xl font-bold tabular-nums">
-          {occupied} / {capacity || "—"}
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {classLabel} · {candidates.length} candidates
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {enrolled} enrolled · {waitlisted} waitlisted · {graduated} graduated
-        </p>
-        {capacity > 0 && (
-          <div className="mt-5">
-            <HorizontalBar
-              label="Occupied"
-              value={occupied}
-              max={capacity}
-              colorClass="bg-primary"
-              display={`${percent(occupied, capacity)}`}
-            />
-          </div>
-        )}
-      </Card>
-      <StatRing
-        title="Membership"
-        centerLabel={String(candidates.length)}
-        centerSub="candidates"
-        segments={[
-          { label: "Enrolled", value: enrolled, color: MEMBERSHIP.enrolled },
-          { label: "Waitlisted", value: waitlisted, color: MEMBERSHIP.waitlisted },
-          { label: "Graduated", value: graduated, color: MEMBERSHIP.graduated },
-          { label: "Other", value: other, color: MEMBERSHIP.other },
-        ]}
-        legend={[
-          { label: "Enrolled", value: enrolled, color: MEMBERSHIP.enrolled },
-          { label: "Waitlisted", value: waitlisted, color: MEMBERSHIP.waitlisted },
-          { label: "Graduated", value: graduated, color: MEMBERSHIP.graduated },
-          { label: "Other", value: other, color: MEMBERSHIP.other },
-        ]}
-      />
-      <Card className="flex h-full min-w-0 flex-col p-5 md:col-span-2 xl:col-span-1">
-        <p className="text-sm text-muted-foreground">Training status</p>
-        <p className="mt-1 font-display text-3xl font-bold tabular-nums">{inProgress}</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          in progress of {trainingTotal || 0}
-        </p>
+    <FadeIn className={cn("grid gap-4 xl:grid-cols-3", className)}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Seats</TableHead>
+            <TableHead>Value</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell>Occupied</TableCell>
+            <TableCell className="tabular-nums">
+              {occupied} / {capacity || "—"} ({percent(occupied, capacity)})
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell>Class</TableCell>
+            <TableCell>
+              {classLabel} · {candidates.length} candidates
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell>Enrolled</TableCell>
+            <TableCell className={cn("tabular-nums", statusTone("enrolled"))}>{enrolled}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell>Waitlisted</TableCell>
+            <TableCell className={cn("tabular-nums", statusTone("waitlisted"))}>{waitlisted}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell>Graduated</TableCell>
+            <TableCell className={cn("tabular-nums", statusTone("graduated"))}>{graduated}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell>Other</TableCell>
+            <TableCell className={cn("tabular-nums", statusTone("rejected"))}>{other}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
 
-        <div
-          className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-muted"
-          role="img"
-          aria-label="Training status mix"
-        >
-          {training.map((row) =>
-            row.value > 0 ? (
-              <div
-                key={row.key}
-                className="h-full min-w-0"
-                style={{
-                  width: `${(row.value / Math.max(trainingTotal, 1)) * 100}%`,
-                  backgroundColor: row.color,
-                }}
-                title={`${row.label}: ${row.value}`}
-              />
-            ) : null,
-          )}
-        </div>
-
-        <div className="mt-5 grid gap-x-8 gap-y-3 sm:grid-cols-2 xl:grid-cols-1">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Training</TableHead>
+            <TableHead>Count</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell className={statusTone("in_progress")}>In progress</TableCell>
+            <TableCell className="tabular-nums">
+              {inProgress} of {trainingTotal || 0}
+            </TableCell>
+          </TableRow>
           {training.map((row) => (
-            <HorizontalBar
-              key={row.key}
-              label={row.label}
-              value={row.value}
-              max={trainingTotal}
-              colorClass={row.colorClass}
-              display={`${row.value} · ${percent(row.value, trainingTotal)}`}
-            />
+            <TableRow key={row.key}>
+              <TableCell className={statusTone(row.key)}>{row.label}</TableCell>
+              <TableCell>
+                <HorizontalBar
+                  label=""
+                  value={row.value}
+                  max={trainingTotal}
+                  colorClass={row.colorClass}
+                  display={`${row.value} · ${percent(row.value, trainingTotal)}`}
+                />
+              </TableCell>
+            </TableRow>
           ))}
-        </div>
-      </Card>
-    </div>
+        </TableBody>
+      </Table>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Enrollment</TableHead>
+            <TableHead>Count</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell>Mix</TableCell>
+            <TableCell>
+              <div className="flex h-2.5 overflow-hidden bg-muted">
+                {mix.map((row) =>
+                  row.value > 0 ? (
+                    <div
+                      key={row.key}
+                      className={cn("h-full", row.colorClass)}
+                      style={{ width: `${(row.value / (mixTotal || 1)) * 100}%` }}
+                      title={`${row.label}: ${row.value}`}
+                    />
+                  ) : null,
+                )}
+              </div>
+            </TableCell>
+          </TableRow>
+          {mix.map((row) => (
+            <TableRow key={row.key}>
+              <TableCell className={row.key === "other" ? statusTone("rejected") : statusTone(row.key)}>
+                {row.label}
+              </TableCell>
+              <TableCell className={cn("tabular-nums", row.key === "other" ? statusTone("rejected") : statusTone(row.key))}>
+                {row.value} · {percent(row.value, mixTotal)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </FadeIn>
   );
 }

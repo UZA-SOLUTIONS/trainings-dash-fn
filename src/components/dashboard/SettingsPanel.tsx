@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import * as authService from "@/services/authService";
-import type { StaffRole } from "@/services/authService";
+import { CANCEL_TEXT, LINK_TEXT, SAVE_TEXT } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ import {
 import { roleLabel } from "@/lib/permissions";
 import { DASHBOARD_TABS, type DashboardTab } from "@/components/dashboard/types";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
+import { PageTitle } from "@/components/layout/PageTitle";
 import { toast } from "sonner";
 
 const WORKSPACE_TABS = DASHBOARD_TABS.filter((t) => t.id !== "settings");
@@ -118,16 +119,14 @@ export function SettingsPanel() {
 
   return (
     <div>
-      <p className="text-eyebrow text-muted-foreground">Account</p>
-      <h1 className="mt-2 font-display text-4xl font-bold">Settings</h1>
-
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <PageTitle>Settings</PageTitle>
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border/70 p-6">
           <p className="text-eyebrow text-muted-foreground">Your account</p>
-          <div className="mt-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 font-display text-2xl font-bold text-primary">
+          <div className="mt-5 flex h-16 w-16 items-center justify-center rounded-none bg-muted font-display text-2xl text-foreground">
             {(user?.full_name || user?.email || "?").charAt(0).toUpperCase()}
           </div>
-          <h2 className="mt-4 font-display text-2xl font-semibold">
+          <h2 className="mt-4 text-2xl">
             {user?.full_name || "Staff member"}
           </h2>
           <p className="mt-1 text-base text-muted-foreground">{user?.email}</p>
@@ -149,7 +148,7 @@ export function SettingsPanel() {
         </Card>
 
         <Card className="border-border/70 p-6">
-          <h2 className="font-display text-xl font-semibold">Edit profile</h2>
+          <h2 className="text-sm">Edit profile</h2>
           <form className="mt-6 space-y-5" onSubmit={handleProfileSubmit}>
             <div className="space-y-2">
               <Label htmlFor="profile-name">Full name</Label>
@@ -189,7 +188,7 @@ export function SettingsPanel() {
         </Card>
 
         <Card className="border-border/70 p-6">
-          <h2 className="font-display text-xl font-semibold">Workspace</h2>
+          <h2 className="text-sm">Workspace</h2>
           <div className="mt-6 space-y-6">
             <div className="space-y-2">
               <Label htmlFor="default-tab">Default page after sign-in</Label>
@@ -242,7 +241,7 @@ export function SettingsPanel() {
         </Card>
 
         <Card className="border-border/70 p-6">
-          <h2 className="font-display text-xl font-semibold">Security</h2>
+          <h2 className="text-sm">Security</h2>
           <form className="mt-6 space-y-4" onSubmit={handlePasswordSubmit}>
             <div className="space-y-2">
               <Label htmlFor="current-password">Current password</Label>
@@ -327,7 +326,7 @@ function StaffAccountsCard() {
 
   return (
     <Card className="mt-6 border-border/70 p-6">
-      <h2 className="font-display text-xl font-semibold">Staff accounts</h2>
+      <h2 className="text-sm">Staff accounts</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Invite admins and instructors. Instructors only see the cohorts they are assigned to.
       </p>
@@ -411,7 +410,7 @@ function StaffAccountsCard() {
             <TableBody>
               {staff.map((member) => (
                 <TableRow key={member.id}>
-                  <TableCell className="font-medium">{member.full_name || "—"}</TableCell>
+                  <TableCell>{member.full_name || "—"}</TableCell>
                   <TableCell>{member.email}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{roleLabel(member.role)}</Badge>

@@ -1,8 +1,32 @@
-export function LoadingSpinner({ label = "Loading…" }: { label?: string }) {
+import { cn } from "@/lib/utils";
+import { m } from "framer-motion";
+
+export function LoadingSpinner({
+  label,
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col items-center gap-3" role="status" aria-live="polite">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
-      <p className="text-sm text-muted-foreground">{label}</p>
-    </div>
+    <m.div
+      className={cn("flex flex-col items-center justify-center gap-3 py-16", className)}
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="size-16 overflow-hidden rounded-full">
+        <img
+          src="/image.png"
+          alt=""
+          className="size-full animate-spin [animation-duration:0.75s]"
+        />
+      </div>
+      {label ? <p className="text-sm text-muted-foreground">{label}</p> : null}
+      <span className="sr-only">{label ?? "Loading"}</span>
+    </m.div>
   );
 }

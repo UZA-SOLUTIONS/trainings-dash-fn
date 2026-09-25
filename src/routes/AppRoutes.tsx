@@ -1,10 +1,10 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { ClassroomLayout } from "@/layouts/ClassroomLayout";
-import { LoadingSpinner } from "@/components/feedback/LoadingSpinner";
+import { AppShellSkeleton, Skeleton } from "@/components/feedback/Skeleton";
 
 const Login = lazy(() => import("@/pages/Login"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
@@ -22,11 +22,25 @@ const CandidateCertificate = lazy(() => import("@/pages/CandidateCertificate"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 function FallBack() {
-  return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <LoadingSpinner />
-    </div>
-  );
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/auth") || pathname === "/login") {
+    return (
+      <div className="grid min-h-dvh lg:grid-cols-2">
+        <div className="flex items-center justify-center px-5 py-10">
+          <div className="w-full max-w-[26rem] space-y-3 text-center" aria-busy="true">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+          </div>
+        </div>
+        <div className="relative hidden bg-primary lg:block">
+          <img src="/login-hero.jpg" alt="" className="absolute inset-0 size-full object-cover" />
+        </div>
+      </div>
+    );
+  }
+  return <AppShellSkeleton />;
 }
 
 export function AppRoutes() {

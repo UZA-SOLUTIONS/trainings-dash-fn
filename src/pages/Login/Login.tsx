@@ -6,20 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { loadDashboardPreferences } from "@/components/dashboard/preferences";
+import { LoadingSpinner } from "@/components/feedback/LoadingSpinner";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading, login, register } = useAuth();
+  const { user, loading, login } = useAuth();
   const fromState = (location.state as { from?: string } | null)?.from;
   const defaultDashboard = `/dashboard?tab=${loadDashboardPreferences().defaultTab}`;
   const redirectTo = fromState ?? defaultDashboard;
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -28,65 +28,47 @@ export default function Login() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "forgot") {
+      toast.message("Ask an admin to set a temporary password in Settings.");
+      setMode("signin");
+      return;
+    }
     setBusy(true);
     try {
-      if (mode === "signup") {
-        await register(fullName, email, password);
-      } else {
-        await login(email, password);
-      }
+      await login(email, password);
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
       setBusy(false);
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     }
   }
 
-  return (
-    <div className="w-full max-w-[26rem]">
-      <div className="rounded-2xl border border-border/70 bg-background p-7 sm:p-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Staff portal
-        </p>
-        <h1 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">
-          {mode === "signin" ? "Sign in" : "Create admin account"}
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {mode === "signin"
-            ? "Secure access for instructors and programme admins."
-            : "The first account becomes admin. Additional staff are invited by an admin."}
-        </p>
+  if (loading || busy) {
+    return <LoadingSpinner label={busy ? "Signing in…" : "Loading…"} />;
+  }
 
-        <form onSubmit={handleSubmit} className="mt-7 space-y-4">
-          {mode === "signup" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="fullName">Full name</Label>
-              <Input
-                id="fullName"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                maxLength={100}
-                autoComplete="name"
-                className="h-11"
-              />
-            </div>
-          )}
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Work email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              maxLength={255}
-              autoComplete="email"
-              placeholder="name@organisation.rw"
-              className="h-11"
-            />
-          </div>
+  return (
+    <div className="w-full">
+      <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">
+        {mode === "signin" ? "Sign in" : "Forgot password"}
+      </h1>
+
+      <form onSubmit={handleSubmit} className="mt-7 space-y-4 text-left">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Work email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            maxLength={255}
+            autoComplete="email"
+            placeholder="name@organisation.rw"
+            className="h-11"
+          />
+        </div>
+        {mode === "signin" && (
           <div className="space-y-1.5">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
@@ -97,7 +79,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                autoComplete="current-password"
                 className="h-11 pr-11"
               />
               <button
@@ -111,22 +93,20 @@ export default function Login() {
               </button>
             </div>
           </div>
-          <Button type="submit" className="mt-2 h-11 w-full" disabled={busy}>
-            {busy ? "Please wait…" : mode === "signin" ? "Continue" : "Create account"}
-          </Button>
-        </form>
+        )}
+        <Button type="submit" className="mt-2 h-11 w-full" disabled={busy}>
+          {busy ? "Please wait…" : "Continue"}
+        </Button>
+      </form>
 
-        <div className="mt-6 border-t border-border/70 pt-5">
-          <button
-            type="button"
-            className="w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            {mode === "signin"
-              ? "First-time setup? Create the admin account"
-              : "Already have an account? Sign in"}
-          </button>
-        </div>
+      <div className="mt-6 border-t border-border/40 pt-5">
+        <button
+          type="button"
+          className="w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => setMode(mode === "signin" ? "forgot" : "signin")}
+        >
+          {mode === "signin" ? "Forgot password" : "Back to sign in"}
+        </button>
       </div>
     </div>
   );

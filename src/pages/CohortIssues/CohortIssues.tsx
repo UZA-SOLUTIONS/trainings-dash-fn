@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useParams } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCohort } from "@/services/cohortService";
@@ -11,8 +11,6 @@ import {
   type IssueSeverity,
   type IssueStatus,
 } from "@/services/issueService";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,27 +22,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ListSkeleton } from "@/components/feedback/Skeleton";
+import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { humanize } from "@/lib/utils";
+import { CANCEL_TEXT, DELETE_TEXT, humanize, LINK_TEXT, SAVE_TEXT, statusTone } from "@/lib/utils";
+import { PageTitle } from "@/components/layout/PageTitle";
+import { CohortSummary } from "@/components/layout/CohortSummary";
 
 const CATEGORIES: IssueCategory[] = ["academic", "conduct", "attendance", "health", "other"];
 const SEVERITIES: IssueSeverity[] = ["low", "medium", "high"];
 const STATUSES: IssueStatus[] = ["open", "in_progress", "resolved"];
-
-function statusBadge(status: IssueStatus) {
-  if (status === "resolved") return <Badge variant="secondary">{humanize(status)}</Badge>;
-  if (status === "in_progress") return <Badge>{humanize(status)}</Badge>;
-  return <Badge variant="outline">{humanize(status)}</Badge>;
-}
-
-function severityBadge(severity: IssueSeverity) {
-  if (severity === "high") return <Badge variant="destructive">{humanize(severity)}</Badge>;
-  if (severity === "medium") return <Badge>{humanize(severity)}</Badge>;
-  return <Badge variant="secondary">{humanize(severity)}</Badge>;
-}
 
 function formatReported(value: string) {
   const d = new Date(value);
@@ -135,14 +131,13 @@ export default function CohortIssues() {
 
   return (
     <div>
-      <section className="mt-8 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-2xl font-semibold">Issue log</h2>
-          <div className="flex flex-wrap items-center gap-2">
+      <PageTitle
+        actions={
+          <>
             {canWrite && !reporting && (
-              <Button type="button" variant="outline" onClick={() => setReporting(true)}>
+              <button type="button" className={SAVE_TEXT} onClick={() => setReporting(true)}>
                 Report an issue
-              </Button>
+              </button>
             )}
             <Select
               value={statusFilter}
@@ -160,16 +155,21 @@ export default function CohortIssues() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        </div>
+          </>
+        }
+      >
+        Issues
+      </PageTitle>
+      <CohortSummary />
+      <section className="space-y-4">
 
         {canWrite && reporting && (
           <Card className="space-y-4 p-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="font-display text-xl font-semibold">Report an issue</h2>
-              <Button type="button" variant="outline" size="sm" onClick={() => setReporting(false)}>
+              <h2 className="text-sm">Report an issue</h2>
+              <button type="button" className={CANCEL_TEXT} onClick={() => setReporting(false)}>
                 Cancel
-              </Button>
+              </button>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
@@ -226,125 +226,141 @@ export default function CohortIssues() {
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
               </div>
             </div>
-            <Button
+            <button
               type="button"
+              className={SAVE_TEXT}
               disabled={create.isPending || !candidateId || title.trim().length < 2}
               onClick={() => create.mutate()}
             >
               {create.isPending ? "Reporting…" : "Report issue"}
-            </Button>
+            </button>
           </Card>
         )}
 
         {issuesLoading ? (
-          <ListSkeleton rows={4} />
+          <TableSkeleton rows={4} cols={7} />
         ) : issues.length === 0 ? (
           <p className="text-base text-muted-foreground">No issues reported yet.</p>
         ) : (
-          <div className="space-y-3">
-            {issues.map((issue) => (
-              <Card key={issue.id} className="space-y-3 p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{issue.title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {issue.candidate_name} · {issue.candidate_code}
-                    </p>
-                  </div>
-                  {statusBadge(issue.status)}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{humanize(issue.category)}</Badge>
-                  {severityBadge(issue.severity)}
-                </div>
-                {issue.description && <p className="text-sm">{issue.description}</p>}
-                {issue.resolution_notes && (
-                  <p className="text-sm text-muted-foreground">
-                    Resolution: {issue.resolution_notes}
-                  </p>
-                )}
-                <p className="text-sm text-muted-foreground">Reported {formatReported(issue.created_at)}</p>
-                {canWrite && (
-                  <div className="flex flex-wrap gap-2">
-                    {issue.status !== "in_progress" && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          update.mutate({ id: issue.id, payload: { status: "in_progress" } })
-                        }
-                      >
-                        In progress
-                      </Button>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Candidate</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Severity</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Reported</TableHead>
+                {canWrite && <TableHead>Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {issues.map((issue) => (
+                <Fragment key={issue.id}>
+                  <TableRow>
+                    <TableCell>
+                      <p>{issue.title}</p>
+                      {issue.description && (
+                        <p className="mt-0.5 text-muted-foreground">{issue.description}</p>
+                      )}
+                      {issue.resolution_notes && (
+                        <p className="mt-0.5 text-muted-foreground">
+                          Resolution: {issue.resolution_notes}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {issue.candidate_name}
+                      <span className="ml-1 font-mono text-muted-foreground">{issue.candidate_code}</span>
+                    </TableCell>
+                    <TableCell>{humanize(issue.category)}</TableCell>
+                    <TableCell className={statusTone(issue.severity)}>{humanize(issue.severity)}</TableCell>
+                    <TableCell className={statusTone(issue.status)}>{humanize(issue.status)}</TableCell>
+                    <TableCell>{formatReported(issue.created_at)}</TableCell>
+                    {canWrite && (
+                      <TableCell>
+                        <div className="flex flex-wrap gap-3">
+                          {issue.status !== "in_progress" && (
+                            <button
+                              type="button"
+                              className={LINK_TEXT}
+                              onClick={() =>
+                                update.mutate({ id: issue.id, payload: { status: "in_progress" } })
+                              }
+                            >
+                              In progress
+                            </button>
+                          )}
+                          {issue.status !== "open" && (
+                            <button
+                              type="button"
+                              className={LINK_TEXT}
+                              onClick={() =>
+                                update.mutate({
+                                  id: issue.id,
+                                  payload: { status: "open", resolution_notes: null },
+                                })
+                              }
+                            >
+                              Reopen
+                            </button>
+                          )}
+                          {issue.status !== "resolved" && (
+                            <button
+                              type="button"
+                              className={SAVE_TEXT}
+                              onClick={() => {
+                                setResolvingId(issue.id);
+                                setResolutionNotes(issue.resolution_notes ?? "");
+                              }}
+                            >
+                              Resolve
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className={DELETE_TEXT}
+                            onClick={() => setPendingDelete(issue.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </TableCell>
                     )}
-                    {issue.status !== "open" && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          update.mutate({
-                            id: issue.id,
-                            payload: { status: "open", resolution_notes: null },
-                          })
-                        }
-                      >
-                        Reopen
-                      </Button>
-                    )}
-                    {issue.status !== "resolved" && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setResolvingId(issue.id);
-                          setResolutionNotes(issue.resolution_notes ?? "");
-                        }}
-                      >
-                        Resolve
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => setPendingDelete(issue.id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                )}
-                {resolvingId === issue.id && (
-                  <div className="space-y-2">
-                    <Label>Resolution notes</Label>
-                    <Textarea
-                      value={resolutionNotes}
-                      onChange={(e) => setResolutionNotes(e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={update.isPending}
-                      onClick={() =>
-                        update.mutate({
-                          id: issue.id,
-                          payload: {
-                            status: "resolved",
-                            resolution_notes: resolutionNotes.trim() || null,
-                          },
-                        })
-                      }
-                    >
-                      Save resolution
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            ))}
-          </div>
+                  </TableRow>
+                  {resolvingId === issue.id && (
+                    <TableRow>
+                      <TableCell colSpan={canWrite ? 7 : 6}>
+                        <div className="space-y-2">
+                          <Label>Resolution notes</Label>
+                          <Textarea
+                            value={resolutionNotes}
+                            onChange={(e) => setResolutionNotes(e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className={SAVE_TEXT}
+                            disabled={update.isPending}
+                            onClick={() =>
+                              update.mutate({
+                                id: issue.id,
+                                payload: {
+                                  status: "resolved",
+                                  resolution_notes: resolutionNotes.trim() || null,
+                                },
+                              })
+                            }
+                          >
+                            Save resolution
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </section>
 

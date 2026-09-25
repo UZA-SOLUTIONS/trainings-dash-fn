@@ -16,6 +16,19 @@ export type CohortInstructor = {
   role: StaffUser["role"];
 };
 
+export type TimetableDay = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
+
+export type TimetableEntry = {
+  id?: string;
+  day: TimetableDay;
+  start_time: string;
+  end_time: string;
+  module_id: string | null;
+  title: string | null;
+  room: string | null;
+  notes: string | null;
+};
+
 export type Cohort = {
   id: string;
   name: string;
@@ -29,6 +42,7 @@ export type Cohort = {
   instructor_ids: string[];
   course?: CohortCourse;
   instructors?: CohortInstructor[];
+  timetable?: TimetableEntry[];
 };
 
 export type CreateCohortPayload = {
@@ -67,5 +81,12 @@ export async function updateCohort(id: string, payload: Partial<CreateCohortPayl
 
 export async function deleteCohort(id: string) {
   const { data } = await api.delete<ApiResponse<{ cohort: Cohort }>>(`/cohorts/${id}`);
+  return data.data.cohort;
+}
+
+export async function updateCohortTimetable(id: string, timetable: TimetableEntry[]) {
+  const { data } = await api.patch<ApiResponse<{ cohort: Cohort }>>(`/cohorts/${id}/timetable`, {
+    timetable,
+  });
   return data.data.cohort;
 }

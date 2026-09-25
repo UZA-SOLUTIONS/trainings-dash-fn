@@ -1,7 +1,5 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { classroomHref } from "@/components/dashboard/types";
 import {
   getAttendanceSession,
@@ -10,7 +8,16 @@ import {
 } from "@/services/attendanceService";
 import { getAssessment, listAssessments } from "@/services/assessmentService";
 import { listCohortIssues, type IssueSeverity } from "@/services/issueService";
-import { humanize } from "@/lib/utils";
+import { CardGridSkeleton } from "@/components/feedback/Skeleton";
+import { cn, humanize, LINK_TEXT, scoreTone, statusTone } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 function formatShortDate(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -22,10 +29,8 @@ function formatShortDate(iso: string) {
   });
 }
 
-function severityBadge(severity: IssueSeverity) {
-  if (severity === "high") return <Badge variant="destructive">{humanize(severity)}</Badge>;
-  if (severity === "medium") return <Badge>{humanize(severity)}</Badge>;
-  return <Badge variant="secondary">{humanize(severity)}</Badge>;
+function severityLabel(severity: IssueSeverity) {
+  return humanize(severity);
 }
 
 export function OverviewActivity({ cohortId }: { cohortId: string }) {
@@ -57,7 +62,7 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
   });
 
   if (sessionsQuery.isPending || assessmentsQuery.isPending || issuesQuery.isPending) {
-    return null;
+    return <CardGridSkeleton cards={3} />;
   }
 
   const roster = sessionDetail.data?.roster ?? [];
@@ -88,80 +93,145 @@ export function OverviewActivity({ cohortId }: { cohortId: string }) {
   if (!showAttendance && !showMarks && !showIssues) return null;
 
   return (
-    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="mt-4 grid gap-4 xl:grid-cols-3">
       {showAttendance && latestSession && (
-        <Card className="flex h-full min-w-0 flex-col p-5">
-          <p className="text-sm text-muted-foreground">Last roll call</p>
-          <p className="mt-1 font-display text-3xl font-bold tabular-nums">
-            {attendanceCounts.present}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            present · {formatShortDate(latestSession.date)} · {humanize(latestSession.session_label)}
-          </p>
-          <p className="mt-4 text-sm text-muted-foreground">
-            {attendanceCounts.late} late · {attendanceCounts.absent} absent · {attendanceCounts.excused}{" "}
-            excused
-          </p>
-          <Link
-            to={classroomHref("attendance", cohortId)}
-            className="mt-auto pt-4 text-sm font-medium text-primary hover:underline"
-          >
-            Open attendance
-          </Link>
-        </Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Last roll call</TableHead>
+              <TableHead>Value</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell>Present</TableCell>
+              <TableCell className={cn("tabular-nums", statusTone("present"))}>
+                {attendanceCounts.present}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Session</TableCell>
+              <TableCell>
+                {formatShortDate(latestSession.date)} · {humanize(latestSession.session_label)}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Late</TableCell>
+              <TableCell className={cn("tabular-nums", statusTone("late"))}>
+                {attendanceCounts.late}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Absent</TableCell>
+              <TableCell className={cn("tabular-nums", statusTone("absent"))}>
+                {attendanceCounts.absent}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Excused</TableCell>
+              <TableCell className={cn("tabular-nums", statusTone("excused"))}>
+                {attendanceCounts.excused}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell colSpan={2} className="p-0">
+                <Link
+                  to={classroomHref("attendance", cohortId)}
+                  className={cn("block px-3 py-2 hover:bg-accent/60", LINK_TEXT)}
+                >
+                  Open attendance
+                </Link>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       )}
 
       {showMarks && latestAssessment && (
-        <Card className="flex h-full min-w-0 flex-col p-5">
-          <p className="text-sm text-muted-foreground">Latest marks</p>
-          <p className="mt-1 font-display text-3xl font-bold tabular-nums">
-            {Math.round(avg)}
-            <span className="text-xl font-semibold text-muted-foreground">
-              {" "}
-              / {latestAssessment.max_score}
-            </span>
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            average · {latestAssessment.title}
-          </p>
-          <p className="mt-4 text-sm text-muted-foreground">
-            {scored.length} of {scores.length} scored · {formatShortDate(latestAssessment.date)}
-          </p>
-          <Link
-            to={classroomHref("assessments", cohortId)}
-            className="mt-auto pt-4 text-sm font-medium text-primary hover:underline"
-          >
-            Open marks
-          </Link>
-        </Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Latest marks</TableHead>
+              <TableHead>Value</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell>Average</TableCell>
+              <TableCell
+                className={cn(
+                  "tabular-nums",
+                  scoreTone(
+                    latestAssessment.max_score
+                      ? Math.round((avg / latestAssessment.max_score) * 100)
+                      : null,
+                  ),
+                )}
+              >
+                {Math.round(avg)} / {latestAssessment.max_score}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Assessment</TableCell>
+              <TableCell>{latestAssessment.title}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Scored</TableCell>
+              <TableCell className="tabular-nums">
+                {scored.length} of {scores.length} · {formatShortDate(latestAssessment.date)}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell colSpan={2} className="p-0">
+                <Link
+                  to={classroomHref("assessments", cohortId)}
+                  className={cn("block px-3 py-2 hover:bg-accent/60", LINK_TEXT)}
+                >
+                  Open marks
+                </Link>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       )}
 
       {showIssues && (
-        <Card className="flex h-full min-w-0 flex-col p-5 md:col-span-2 xl:col-span-1">
-          <p className="text-sm text-muted-foreground">Open issues</p>
-          <p className="mt-1 font-display text-3xl font-bold tabular-nums">{unresolved.length}</p>
-          <p className="mt-1 text-sm text-muted-foreground">need action</p>
-          <ul className="mt-4 space-y-3">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Open issues</TableHead>
+              <TableHead>Detail</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell>Need action</TableCell>
+              <TableCell className="tabular-nums">{unresolved.length}</TableCell>
+            </TableRow>
             {previewIssues.map((issue) => (
-              <li key={issue.id} className="min-w-0">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="min-w-0 truncate text-sm font-medium">{issue.title}</p>
-                  {severityBadge(issue.severity)}
-                </div>
-                <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                  {issue.candidate_name ?? issue.candidate_code ?? "Candidate"}
-                  {issue.status === "in_progress" ? " · In progress" : ""}
-                </p>
-              </li>
+              <TableRow key={issue.id}>
+                <TableCell>
+                  <p className="truncate">{issue.title}</p>
+                  <p className="truncate text-muted-foreground">
+                    {issue.candidate_name ?? issue.candidate_code ?? "Candidate"}
+                    {issue.status === "in_progress" ? " · In progress" : ""}
+                  </p>
+                </TableCell>
+                <TableCell className={statusTone(issue.severity)}>{severityLabel(issue.severity)}</TableCell>
+              </TableRow>
             ))}
-          </ul>
-          <Link
-            to={classroomHref("issues", cohortId)}
-            className="mt-auto pt-4 text-sm font-medium text-primary hover:underline"
-          >
-            Open issues
-          </Link>
-        </Card>
+            <TableRow>
+              <TableCell colSpan={2} className="p-0">
+                <Link
+                  to={classroomHref("issues", cohortId)}
+                  className={cn("block px-3 py-2 hover:bg-accent/60", LINK_TEXT)}
+                >
+                  Open issues
+                </Link>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       )}
     </div>
   );

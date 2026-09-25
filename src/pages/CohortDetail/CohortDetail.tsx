@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCohort } from "@/services/cohortService";
@@ -10,10 +10,6 @@ import {
   type Candidate,
 } from "@/services/candidateService";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -34,6 +30,11 @@ import { ReasonDialog } from "@/components/ui/reason-dialog";
 import { TableSkeleton } from "@/components/feedback/Skeleton";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { DELETE_TEXT, formatDob, humanize, LINK_TEXT, SAVE_TEXT, cn, statusTone } from "@/lib/utils";
+import { CELL_SELECT, SheetInput } from "@/components/ui/sheet-input";
+import { CertificatePreviewDialog } from "@/components/certificate/CertificatePreviewDialog";
+import { PageTitle } from "@/components/layout/PageTitle";
+import { CohortSummary } from "@/components/layout/CohortSummary";
 
 const STATUSES = ["enrolled", "waitlisted", "rejected", "withdrawn", "graduated"] as const;
 const TRAINING = ["not_started", "in_progress", "completed", "failed"] as const;
@@ -41,21 +42,16 @@ const TRAINING = ["not_started", "in_progress", "completed", "failed"] as const;
 type BulkRow = { full_name: string; national_id: string; phone: string };
 
 function emptyRows(): BulkRow[] {
-  return [
-    { full_name: "", national_id: "", phone: "" },
-    { full_name: "", national_id: "", phone: "" },
-    { full_name: "", national_id: "", phone: "" },
-  ];
+  return [{ full_name: "", national_id: "", phone: "" }];
 }
 
 export default function CohortDetail() {
   const { cohortId } = useParams<{ cohortId: string }>();
   const queryClient = useQueryClient();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRows, setBulkRows] = useState<BulkRow[]>(emptyRows);
   const [pendingDelete, setPendingDelete] = useState<Candidate | null>(null);
   const [rejecting, setRejecting] = useState<Candidate | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const { can, isInstructor } = useAuth();
   const canMembership = can("candidates.membership");
   const canTraining = can("candidates.training");
@@ -89,7 +85,6 @@ export default function CohortDetail() {
     onSuccess: () => {
       toast.success("Candidate deleted");
       setPendingDelete(null);
-      setOpenId(null);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -107,7 +102,6 @@ export default function CohortDetail() {
         result.errors.forEach((err) => toast.error(`Row ${err.index + 1}: ${err.message}`));
       }
       setBulkRows(emptyRows());
-      setBulkOpen(false);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -130,174 +124,181 @@ export default function CohortDetail() {
   function CandidateTable({ rows, empty }: { rows: Candidate[]; empty: string }) {
     if (rows.length === 0) return <p className="text-base text-muted-foreground">{empty}</p>;
     return (
-      <Card className="overflow-hidden border-border/70 shadow-none">
+      <Card className="overflow-hidden rounded-none border-0 shadow-none">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Candidate</TableHead>
+              <TableHead>Code</TableHead>
               <TableHead>Phone</TableHead>
+              <TableHead>National ID</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Date of birth</TableHead>
+              <TableHead>District</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Training</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((c) => {
-              const open = openId === c.id;
+              const owned = isSchoolOwned(c);
+              const canEditId = canMembership && owned;
               return (
-                <Fragment key={c.id}>
-                  <TableRow>
+                  <TableRow key={c.id}>
                     <TableCell>
-                      <Link to={`/candidates/${c.id}`} className="font-medium hover:underline">
-                        {c.full_name}
-                      </Link>
-                      <p className="mt-0.5 font-mono text-sm font-semibold text-primary">
-                        {c.candidate_code}
-                      </p>
+                      {canEditId ? (
+                        <SheetInput
+                          value={c.full_name}
+                          onSave={(full_name) => update.mutate({ id: c.id, patch: { full_name } })}
+                          pending={update.isPending}
+                        />
+                      ) : (
+                        <Link to={`/candidates/${c.id}`} className={LINK_TEXT}>
+                          {c.full_name}
+                        </Link>
+                      )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{c.phone ?? "—"}</TableCell>
+                    <TableCell className="font-mono text-sm text-primary">
+                      {c.candidate_code}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant={c.status === "enrolled" ? "default" : "secondary"}>
-                        {c.status}
-                      </Badge>
+                      {canEditId ? (
+                        <SheetInput
+                          value={c.phone ?? ""}
+                          onSave={(phone) => update.mutate({ id: c.id, patch: { phone } })}
+                          pending={update.isPending}
+                        />
+                      ) : (
+                        c.phone ?? "—"
+                      )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{c.training_status}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {canMembership && (
-                          <Select value={c.status} onValueChange={(v) => handleStatusChange(c, v)}>
-                            <SelectTrigger className="h-9 w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {STATUSES.map((s) => (
-                                <SelectItem key={s} value={s}>
-                                  {s}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                        {canDelete && isSchoolOwned(c) && (
-                          <Button
+                    <TableCell className="font-mono">
+                      {canEditId ? (
+                        <SheetInput
+                          className="font-mono"
+                          value={c.national_id || ""}
+                          onSave={(national_id) => update.mutate({ id: c.id, patch: { national_id } })}
+                          pending={update.isPending}
+                        />
+                      ) : (
+                        c.national_id || "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {canEditId ? (
+                        <SheetInput
+                          type="email"
+                          value={c.email || ""}
+                          onSave={(email) =>
+                            update.mutate({ id: c.id, patch: { email: email.trim() || null } })
+                          }
+                          pending={update.isPending}
+                        />
+                      ) : (
+                        c.email || "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {canEditId ? (
+                        <SheetInput
+                          type="date"
+                          value={c.date_of_birth ?? ""}
+                          onSave={(date_of_birth) =>
+                            update.mutate({
+                              id: c.id,
+                              patch: { date_of_birth: date_of_birth || null },
+                            })
+                          }
+                          pending={update.isPending}
+                        />
+                      ) : (
+                        formatDob(c.date_of_birth)
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {canEditId ? (
+                        <SheetInput
+                          value={c.district ?? ""}
+                          onSave={(district) =>
+                            update.mutate({
+                              id: c.id,
+                              patch: { district: district.trim() || null },
+                            })
+                          }
+                          pending={update.isPending}
+                        />
+                      ) : (
+                        c.district || "—"
+                      )}
+                    </TableCell>
+                    <TableCell className={canMembership ? "p-0" : statusTone(c.status)}>
+                      {canMembership ? (
+                        <Select value={c.status} onValueChange={(v) => handleStatusChange(c, v)}>
+                          <SelectTrigger className={cn(CELL_SELECT, statusTone(c.status))}>
+                            <SelectValue>{humanize(c.status)}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUSES.map((s) => (
+                              <SelectItem key={s} value={s} className={statusTone(s)}>
+                                {humanize(s)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        humanize(c.status)
+                      )}
+                    </TableCell>
+                    <TableCell className={canTraining ? "p-0" : statusTone(c.training_status)}>
+                      {canTraining ? (
+                        <Select
+                          value={c.training_status}
+                          onValueChange={(v) =>
+                            update.mutate({ id: c.id, patch: { training_status: v } })
+                          }
+                        >
+                          <SelectTrigger className={cn(CELL_SELECT, statusTone(c.training_status))}>
+                            <SelectValue>{humanize(c.training_status)}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TRAINING.map((s) => (
+                              <SelectItem key={s} value={s} className={statusTone(s)}>
+                                {humanize(s)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        humanize(c.training_status)
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Link to={`/candidates/${c.id}`} className={LINK_TEXT}>
+                          Profile
+                        </Link>
+                        {c.status === "graduated" && (
+                          <button
                             type="button"
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive"
+                            className={LINK_TEXT}
+                            onClick={() => setPreviewId(c.id)}
+                          >
+                            Certificate
+                          </button>
+                        )}
+                        {canDelete && owned && (
+                          <button
+                            type="button"
+                            className={DELETE_TEXT}
                             onClick={() => setPendingDelete(c)}
                           >
                             Delete
-                          </Button>
+                          </button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => setOpenId(open ? null : c.id)}>
-                          {open ? "Hide" : "Details"}
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                  {open && (
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={5} className="bg-muted/20 p-5">
-                        <div className="grid gap-6 md:grid-cols-2">
-                          <div>
-                            <h3 className="text-eyebrow text-muted-foreground">Identity</h3>
-                            {!isSchoolOwned(c) && (
-                              <p className="mt-2 text-sm text-muted-foreground">
-                                UZA provided this person. Identity cannot be edited here.
-                              </p>
-                            )}
-                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">National ID</Label>
-                                <Input
-                                  defaultValue={c.national_id}
-                                  disabled={!isSchoolOwned(c)}
-                                  onBlur={(e) =>
-                                    isSchoolOwned(c) &&
-                                    update.mutate({ id: c.id, patch: { national_id: e.target.value } })
-                                  }
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">Email</Label>
-                                <Input
-                                  defaultValue={c.email ?? ""}
-                                  disabled={!isSchoolOwned(c)}
-                                  onBlur={(e) =>
-                                    isSchoolOwned(c) &&
-                                    update.mutate({ id: c.id, patch: { email: e.target.value || null } })
-                                  }
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">Date of birth</Label>
-                                <Input
-                                  type="date"
-                                  defaultValue={c.date_of_birth ?? ""}
-                                  disabled={!isSchoolOwned(c)}
-                                  onBlur={(e) =>
-                                    isSchoolOwned(c) &&
-                                    update.mutate({
-                                      id: c.id,
-                                      patch: { date_of_birth: e.target.value || null },
-                                    })
-                                  }
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">District</Label>
-                                <Input
-                                  defaultValue={c.district ?? ""}
-                                  disabled={!isSchoolOwned(c)}
-                                  onBlur={(e) =>
-                                    isSchoolOwned(c) &&
-                                    update.mutate({ id: c.id, patch: { district: e.target.value || null } })
-                                  }
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          <div>
-                            <h3 className="text-eyebrow text-muted-foreground">Training</h3>
-                            <div className="mt-3 space-y-3">
-                              {canTraining ? (
-                                <>
-                                  <Select
-                                    value={c.training_status}
-                                    onValueChange={(v) =>
-                                      update.mutate({ id: c.id, patch: { training_status: v } })
-                                    }
-                                  >
-                                    <SelectTrigger className="h-9">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {TRAINING.map((s) => (
-                                        <SelectItem key={s} value={s}>
-                                          {s}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  {c.status === "graduated" && (
-                                    <Button asChild variant="outline" size="sm">
-                                      <Link to={`/candidates/${c.id}/certificate`}>Print certificate</Link>
-                                    </Button>
-                                  )}
-                                </>
-                              ) : (
-                                <>
-                                  <p className="text-sm">Attendance: {c.attendance_percentage ?? "—"}%</p>
-                                  <p className="text-sm">Exam: {c.exam_score ?? "—"}</p>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
               );
             })}
           </TableBody>
@@ -308,58 +309,92 @@ export default function CohortDetail() {
 
   return (
     <div>
-      <div className="mt-6">
+      <PageTitle>Roster</PageTitle>
+      <CohortSummary />
+      <div className="space-y-6">
         {isPending && <TableSkeleton />}
         {cohort && (
           <>
             {canMembership && (
-              <div className="mb-6">
-                <Button type="button" variant="outline" onClick={() => setBulkOpen((v) => !v)}>
-                  {bulkOpen ? "Close bulk add" : "Bulk add candidates"}
-                </Button>
-                {bulkOpen && (
-                  <Card className="mt-4 space-y-3 p-5">
+              <div>
+                <h2 className="mb-1 text-xs text-muted-foreground">Bulk add</h2>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Full name</TableHead>
+                      <TableHead>National ID</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {bulkRows.map((row, index) => (
-                      <div key={index} className="grid gap-3 md:grid-cols-3">
-                        <Input
-                          placeholder="Full name"
-                          value={row.full_name}
-                          onChange={(e) => {
-                            const next = [...bulkRows];
-                            next[index] = { ...row, full_name: e.target.value };
-                            setBulkRows(next);
-                          }}
-                        />
-                        <Input
-                          placeholder="National ID"
-                          value={row.national_id}
-                          onChange={(e) => {
-                            const next = [...bulkRows];
-                            next[index] = { ...row, national_id: e.target.value };
-                            setBulkRows(next);
-                          }}
-                        />
-                        <Input
-                          placeholder="Phone"
-                          value={row.phone}
-                          onChange={(e) => {
-                            const next = [...bulkRows];
-                            next[index] = { ...row, phone: e.target.value };
-                            setBulkRows(next);
-                          }}
-                        />
-                      </div>
+                      <TableRow key={index}>
+                        <TableCell>
+                          <SheetInput
+                            value={row.full_name}
+                            onChange={(full_name) => {
+                              const next = [...bulkRows];
+                              next[index] = { ...row, full_name };
+                              setBulkRows(next);
+                            }}
+                            onSave={() => bulk.mutate()}
+                            pending={bulk.isPending}
+                            placeholder="Full name"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <SheetInput
+                            value={row.national_id}
+                            onChange={(national_id) => {
+                              const next = [...bulkRows];
+                              next[index] = { ...row, national_id };
+                              setBulkRows(next);
+                            }}
+                            onSave={() => bulk.mutate()}
+                            pending={bulk.isPending}
+                            placeholder="National ID"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <SheetInput
+                            value={row.phone}
+                            onChange={(phone) => {
+                              const next = [...bulkRows];
+                              next[index] = { ...row, phone };
+                              setBulkRows(next);
+                            }}
+                            onSave={() => bulk.mutate()}
+                            pending={bulk.isPending}
+                            placeholder="Phone"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {bulkRows.length > 1 && (
+                            <button
+                              type="button"
+                              className={DELETE_TEXT}
+                              onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== index))}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </TableCell>
+                      </TableRow>
                     ))}
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" onClick={() => setBulkRows([...bulkRows, { full_name: "", national_id: "", phone: "" }])}>
-                        Add row
-                      </Button>
-                      <Button type="button" disabled={bulk.isPending} onClick={() => bulk.mutate()}>
-                        {bulk.isPending ? "Adding…" : "Save rows"}
-                      </Button>
-                    </div>
-                  </Card>
-                )}
+                  </TableBody>
+                </Table>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    className={SAVE_TEXT}
+                    onClick={() =>
+                      setBulkRows([...bulkRows, { full_name: "", national_id: "", phone: "" }])
+                    }
+                  >
+                    Add row
+                  </button>
+                </div>
               </div>
             )}
             <Section title={`Enrolled (${enrolled.length})`}>
@@ -406,15 +441,22 @@ export default function CohortDetail() {
           });
         }}
       />
+      <CertificatePreviewDialog
+        candidateId={previewId}
+        open={Boolean(previewId)}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId(null);
+        }}
+      />
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="mt-10">
-      <h2 className="text-eyebrow text-muted-foreground">{title}</h2>
-      <div className="mt-4">{children}</div>
+    <section>
+      <h2 className="mb-1 text-xs text-muted-foreground">{title}</h2>
+      {children}
     </section>
   );
 }

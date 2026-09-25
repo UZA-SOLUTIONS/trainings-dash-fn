@@ -9,13 +9,13 @@
  */
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -59,7 +59,7 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0;
   --background: oklch(0.985 0.006 130);
   --foreground: oklch(0.19 0.03 155);
   --card: oklch(1 0 0);
@@ -324,6 +324,78 @@
   .partners-lens {
     animation: none;
   }
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--muted);
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.5), transparent);
+  animation: skeleton-shimmer 1.15s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    animation: none;
+  }
+}
+
+@font-face {
+  font-family: "Algerian";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Algerian"), local("Algerian Regular"),
+    url("https://fonts.gstatic.com/s/cinzeldecorative/v19/daaHSScvJGqLYhG8nNt8KPPswUAPniZoadlESTE.woff2")
+      format("woff2");
+}
+
+@font-face {
+  font-family: "Algerian";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: local("Algerian"), local("Algerian Regular"),
+    url("https://fonts.gstatic.com/s/cinzeldecorative/v19/daaHSScvJGqLYhG8nNt8KPPswUAPniZQa9lESTE.woff2")
+      format("woff2");
+}
+
+.font-algerian {
+  font-family: Algerian, "Cinzel Decorative", serif;
+  font-weight: 700;
+}
+
+td:has(input),
+td:has(textarea),
+td:has([role="combobox"]) {
+  padding: 0;
+}
+
+td input,
+td textarea,
+td [role="combobox"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 2.5rem;
+}
+
+td input[type="date"]::-webkit-datetime-edit {
+  width: 100%;
 }
 
 

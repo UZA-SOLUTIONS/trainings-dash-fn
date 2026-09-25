@@ -7,7 +7,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 
 export function ConfirmDialog({
   open,
@@ -40,17 +39,20 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <Button
-            type="button"
-            variant="destructive"
+          <AlertDialogCancel
             disabled={pending}
-            onClick={async () => {
-              await onConfirm();
-            }}
+            className="h-10 border border-border/40 bg-card px-4 text-sm text-foreground hover:bg-accent/60"
+          >
+            Cancel
+          </AlertDialogCancel>
+          <button
+            type="button"
+            disabled={pending}
+            className="h-10 bg-destructive px-4 text-sm text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => void onConfirm()}
           >
             {pending ? "Working…" : confirmLabel}
-          </Button>
+          </button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

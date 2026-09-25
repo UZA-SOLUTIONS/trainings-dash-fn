@@ -13,7 +13,8 @@ export type PermissionAction =
   | "attendance.write"
   | "assessments.write"
   | "issues.write"
-  | "reports.read";
+  | "reports.read"
+  | "curriculum.write";
 
 const TAB_ACCESS: Record<NavTab, StaffUser["role"][]> = {
   overview: ["admin", "instructor"],
@@ -61,6 +62,7 @@ export function can(user: StaffUser | null, action: PermissionAction): boolean {
     case "assessments.write":
     case "issues.write":
     case "reports.read":
+    case "curriculum.write":
       return user.role === "admin" || user.role === "instructor";
     default:
       return false;
